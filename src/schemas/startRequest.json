@@ -1,0 +1,179 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "StartRequest",
+  "type": "object",
+  "properties": {
+    "gameUUID": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "engineVersion": {
+      "type": "string",
+      "pattern": "^[0-9a-zA-Z .+-]+$"
+    },
+    "modName": { "type": "string" },
+    "mapName": { "type": "string" },
+    "modHash": {
+      "type": "string",
+      "pattern": "^[a-fA-F0-9]{128}$"
+    },
+    "mapHash": {
+      "type": "string",
+      "pattern": "^[a-fA-F0-9]{128}$"
+    },
+    "mapOptions": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "modOptions": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "gameStartDelay": { "type": "integer" },
+    "startPosType": {
+      "$comment": "The order here matters, it maps to 0-3",
+      "enum": ["fixed", "random", "ingame", "beforegame"]
+    },
+    "allyTeams": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/allyTeam" },
+      "minItems": 1
+    },
+    "spectators": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/player" }
+    },
+    "restrictions": {
+      "type": "object",
+      "description": "Unit restrictions",
+      "additionalProperties": { "type": "integer" }
+    }
+  },
+  "required": ["engineVersion", "gameUUID", "modName", "mapName", "allyTeams", "startPosType"],
+  "additionalProperties": false,
+  "$defs": {
+    "zero2one": {
+      "type": "number",
+      "description": "Floating value between 0 and 1",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "allyTeam": {
+      "type": "object",
+      "title": "AllyTeam",
+      "properties": {
+        "teams": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/team" }
+        },
+        "startbox": {
+          "type": "object",
+          "properties": {
+            "top": { "$ref": "#/$defs/zero2one" },
+            "bottom": { "$ref": "#/$defs/zero2one" },
+            "left": { "$ref": "#/$defs/zero2one" },
+            "right": { "$ref": "#/$defs/zero2one" }
+          },
+          "required": ["top", "bottom", "left", "right"],
+          "additionalProperties": false
+        },
+        "allies": {
+          "type": "array",
+          "description": "Indexes into of the other allyteams to ally with",
+          "items": { "type": "integer" }
+        },
+        "customOpts": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      },
+      "required": ["teams"],
+      "additionalProperties": false
+    },
+    "team": {
+      "type": "object",
+      "title": "Team",
+      "properties": {
+        "players": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/player" }
+        },
+        "ais": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ai" }
+        },
+        "advantage": {
+          "type": "number",
+          "minimum": -1
+        },
+        "incomeMultiplier": {
+          "type": "number",
+          "minimum": 0
+        },
+        "side": { "type": "string" },
+        "color": {
+          "type": "object",
+          "properties": {
+            "r": { "$ref": "#/$defs/zero2one" },
+            "g": { "$ref": "#/$defs/zero2one" },
+            "b": { "$ref": "#/$defs/zero2one" }
+          },
+          "required": ["r", "g", "b"],
+          "additionalProperties": false
+        },
+        "startPos": {
+          "type": "object",
+          "properties": {
+            "x": { "type": "integer" },
+            "z": { "type": "integer" }
+          },
+          "required": ["x", "z"],
+          "additionalProperties": false
+        },
+        "customOpts": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "player": {
+      "type": "object",
+      "title": "Player",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the player, must be unique"
+        },
+        "password": { "type": "string" },
+        "rank": { "type": "integer" },
+        "countryCode": { "type": "string" },
+        "customOpts": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      },
+      "required": ["name", "password"],
+      "additionalProperties": false
+    },
+    "ai": {
+      "type": "object",
+      "title": "AI",
+      "properties": {
+        "hostPlayer": {
+          "type": "string",
+          "description": "Name of the player hosting this AI"
+        },
+        "shortName": { "type": "string" },
+        "version": { "type": "string" },
+        "name": { "type": "string" },
+        "options": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      },
+      "required": ["hostPlayer", "shortName"],
+      "additionalProperties": false
+    }
+  }
+}

@@ -3,6 +3,8 @@
   "extends": "@tsconfig/node20/tsconfig.json",
   "include": ["src/**/*"],
   "compilerOptions": {
-    "outDir": "dist"
+    "module": "NodeNext",
+    "outDir": "dist",
+    "resolveJsonModule": true
   }
 }
