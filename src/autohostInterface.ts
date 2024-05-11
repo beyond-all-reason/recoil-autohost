@@ -1,5 +1,5 @@
 /**
- * This module provides a parser for the SpringRTS/Recoil autohost interface packets.
+ * This module provides a parser and serializer for the autohost interface packets.
  *
  * Unfortunately, the autohost interface is not documented, so the parser is based on
  * the implementation in the engine code and validation against actual packets
@@ -487,4 +487,54 @@ export function parsePacket(msg: Buffer): Event {
 		}
 	}
 	throw new PacketParseError(`Unknown event type: ${type}`);
+}
+
+export class PacketSerializeError extends Error {
+	constructor(msg: string) {
+		super(msg);
+		this.name = 'PacketSerializeError';
+	}
+}
+
+/**
+ * Serialize a chat message packet to send to the autohost interface.
+ *
+ * @param message Chat message to serialize
+ * @returns Serialized buffer to send to autohost interface
+ * @throws PacketSerializeError if the message is too long
+ */
+export function serializeMessagePacket(message: string): Buffer {
+	if (message.length > 127) {
+		throw new PacketSerializeError('Message too long');
+	}
+	if (message.length > 0 && message[0] == '/') {
+		return Buffer.from('/' + message, 'utf8');
+	}
+	return Buffer.from(message, 'utf8');
+}
+
+/**
+ * Serialize a command packet to send to the autohost interface.
+ *
+ * The implementation validates argument to ensure that Action::Action
+ * in the engine can parse it correctly.
+ *
+ * @param command Command to serialize e.g. kick
+ * @param args Arguments to serialize as to pass to the command
+ * @returns Serialized buffer to send to autohost interface
+ * @throws PacketSerializeError if the command or arguments contain invalid characters
+ */
+export function serializeCommandPacket(command: string, args: string[]): Buffer {
+	if (!command.match(/^[a-z0-9_-]+$/)) {
+		throw new PacketSerializeError('Invalid command name');
+	}
+	for (let i = 0; i < args.length - 1; i++) {
+		if (args[i].match(/[ \t]|\/\/|^$/)) {
+			throw new PacketSerializeError(`Invalid command argument ${i + 1}`);
+		}
+	}
+	if (args.length > 0 && args[args.length - 1].match(/\/\/|^$/)) {
+		throw new PacketSerializeError('Invalid last command argument');
+	}
+	return Buffer.from(['/' + command, ...args].join(' '), 'utf8');
 }

@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 
 import {
 	parsePacket, EventType, LuaMsgScript, LuaMsgUIMode,
-	PacketParseError, LeaveReason, ReadyState, ChatDestination
+	PacketParseError, LeaveReason, ReadyState, ChatDestination,
+	PacketSerializeError, serializeMessagePacket, serializeCommandPacket
 } from './autohostInterface.js';
 
 test('parse SERVER_STARTED', () => {
@@ -233,6 +234,37 @@ test('parse GAME_TEAMSTAT', () => {
 	}, PacketParseError);
 });
 
+test('serialize message', () => {
+	assert.deepEqual(serializeMessagePacket('msg'), Buffer.from('msg'));
+	assert.deepEqual(serializeMessagePacket('/asdasd'), Buffer.from('//asdasd'));
+	assert.deepEqual(serializeMessagePacket('//asd'), Buffer.from('///asd'));
+	assert.deepEqual(serializeMessagePacket(''), Buffer.from(''));
+	assert.throws(() => {
+		serializeMessagePacket('a'.repeat(200));
+	}, PacketSerializeError);
+});
+
+test('serialize command', () => {
+	assert.deepEqual(serializeCommandPacket('cmd', []), Buffer.from('/cmd'));
+	assert.deepEqual(
+		serializeCommandPacket('a', ['1', '2', 'asd']),
+		Buffer.from('/a 1 2 asd'));
+	assert.deepEqual(
+		serializeCommandPacket('b', ['1', '2', 'some text with stuff']),
+		Buffer.from('/b 1 2 some text with stuff'));
+	assert.throws(() => {
+		serializeCommandPacket('', ['1', '2']);
+	}, PacketSerializeError);
+	assert.throws(() => {
+		serializeCommandPacket('a', ['', '2']);
+	}, PacketSerializeError);
+	assert.throws(() => {
+		serializeCommandPacket('cmd', ['asd asd', 'asd asd']);
+	}, PacketSerializeError);
+	assert.throws(() => {
+		serializeCommandPacket('cmd', ['asd', 'asd //asd']);
+	}, PacketSerializeError);
+});
 
 /**
  * You can dump the network traffic with tcpdump:
