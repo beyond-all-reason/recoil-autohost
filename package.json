@@ -9,7 +9,8 @@
     "test": "tsc && node --enable-source-maps --test",
     "coverage": "tsc && node --enable-source-maps --test --experimental-test-coverage --test-reporter=lcov --test-reporter-destination=lcov.info",
     "lint": "eslint src --ext .ts",
-    "lint:fix": "eslint src --ext .ts --fix"
+    "lint:fix": "eslint src --ext .ts --fix",
+    "format": "prettier --write ."
   },
   "author": "Marek Rusinowski",
   "license": "Apache-2.0",
@@ -30,8 +31,10 @@
     "@typescript-eslint/eslint-plugin": "^6.20.0",
     "@typescript-eslint/parser": "^6.20.0",
     "eslint": "^8.56.0",
+    "eslint-config-prettier": "^9.1.0",
     "json-schema-to-typescript": "^13.1.2",
     "pino-pretty": "^10.3.1",
+    "prettier": "3.2.5",
     "typescript": "^5.3.3"
   },
   "optionalDependencies": {
