@@ -18,8 +18,8 @@ server.post<{ Body: StartRequest }>(
 	'/start',
 	{ schema: { body: StartRequestSchema } },
 	async (req) => {
-		await manager.start(req.body);
-		return 'ok\n';
+		const connectInfo = await manager.start(req.body);
+		return JSON.stringify(connectInfo);
 	},
 );
 
