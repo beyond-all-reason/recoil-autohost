@@ -20,7 +20,8 @@ server.post<{ Body: StartRequest }>(
 	async (req) => {
 		await manager.start(req.body);
 		return 'ok\n';
-	});
+	},
+);
 
 server.get('/updates', { websocket: true }, (conn) => {
 	conn.setEncoding('utf8');

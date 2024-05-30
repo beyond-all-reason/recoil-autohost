@@ -12,7 +12,9 @@ import { scriptGameFromStartRequest } from './startScriptGen.js';
 import type { StartRequest } from './types/startRequest.js';
 
 function serializeEngineSettings(obj: { [k: string]: string }): string {
-	return Object.entries(obj).map(([key, val]) => `${key}=${val}\n`).join('');
+	return Object.entries(obj)
+		.map(([key, val]) => `${key}=${val}\n`)
+		.join('');
 }
 
 /**
@@ -20,21 +22,21 @@ function serializeEngineSettings(obj: { [k: string]: string }): string {
  */
 interface Events {
 	// Emitted when a packet is received from the engine.
-	packet: (ev: Event) => void,
+	packet: (ev: Event) => void;
 
 	// Emitted when an error occurs, the engine runner will close itself after.
 	// This event is emitted only once, after the first error, any subsequent
 	// errors are ignored.
-	error: (err: Error) => void,
+	error: (err: Error) => void;
 
 	// Emitted after the engine has started and the first SERVER_STARTED packet
 	// has been received
-	start: () => void,
+	start: () => void;
 
 	// Emitted when the engine has exited and the UDP server has been closed so
 	// the autohost port is free to use again. This event is emitted always,
 	// even if the starting was interrupted by an error.
-	exit: () => void,
+	exit: () => void;
 }
 
 /**
@@ -58,10 +60,10 @@ enum State {
  * Options for the engine runner
  */
 interface Opts {
-	startRequest: StartRequest,
-	autohostPort: number,
-	hostIP: string,
-	hostPort: number,
+	startRequest: StartRequest;
+	autohostPort: number;
+	hostIP: string;
+	hostPort: number;
 }
 
 /**
@@ -149,7 +151,7 @@ export class EngineRunner extends TypedEmitter<Events> {
 		// with SIGKILL. This is a bit aggressive but we don't want to wait
 		// forever for the engine to exit, it should exit quickly.
 		const engineSigKill = setTimeout(() => {
-			console.error('Engine didn\'t exit after SIGTERM, trying with SIGKILL');
+			console.error("Engine didn't exit after SIGTERM, trying with SIGKILL");
 			this.engineProcess?.kill('SIGKILL');
 		}, 20000);
 
@@ -235,10 +237,10 @@ export class EngineRunner extends TypedEmitter<Events> {
 	private async startEngine(
 		instanceDir: string,
 		startRequest: StartRequest,
-		spawnFunc: typeof spawn
+		spawnFunc: typeof spawn,
 	): Promise<void> {
 		const engineDir = path.resolve('engines', startRequest.engineVersion);
-		if (!await fs.stat(engineDir).catch(() => null)) {
+		if (!(await fs.stat(engineDir).catch(() => null))) {
 			throw new Error(`engine version ${startRequest.engineVersion} doesn't exist`);
 		}
 
@@ -252,9 +254,10 @@ export class EngineRunner extends TypedEmitter<Events> {
 				stdio: 'ignore',
 				env: {
 					...process.env,
-					'SPRING_WRITEDIR': instanceDir
-				}
-			});
+					'SPRING_WRITEDIR': instanceDir,
+				},
+			},
+		);
 		this.engineProcess.on('error', (err) => {
 			if (!this.engineSpawned) {
 				this.engineProcess = null;

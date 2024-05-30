@@ -294,10 +294,20 @@ export interface EvGameTeamStat {
 	stats: TeamStatistics;
 }
 
-export type Event = EvServerStarted | EvServerQuit | EvServerStartPlaying
-	| EvServerGameOver | EvServerMessage | EvServerWarning | EvPlayerJoined
-	| EvPlayerLeft | EvPlayerReady | EvPlayerChat | EvPlayerDefeated
-	| EvGameLuaMsg | EvGameTeamStat;
+export type Event =
+	| EvServerStarted
+	| EvServerQuit
+	| EvServerStartPlaying
+	| EvServerGameOver
+	| EvServerMessage
+	| EvServerWarning
+	| EvPlayerJoined
+	| EvPlayerLeft
+	| EvPlayerReady
+	| EvPlayerChat
+	| EvPlayerDefeated
+	| EvGameLuaMsg
+	| EvGameTeamStat;
 
 export class PacketParseError extends Error {
 	constructor(msg: string) {
@@ -335,7 +345,9 @@ export function parsePacket(msg: Buffer): Event {
 			}
 			const msgSize = msg.readUint32LE(1);
 			if (msgSize != msg.length) {
-				throw new PacketParseError('SERVER_STARTPLAYING: msgSize does not match message length');
+				throw new PacketParseError(
+					'SERVER_STARTPLAYING: msgSize does not match message length',
+				);
 			}
 			return {
 				type,
@@ -349,7 +361,9 @@ export function parsePacket(msg: Buffer): Event {
 			}
 			const msgSize = msg.readUInt8(1);
 			if (msgSize != msg.length) {
-				throw new PacketParseError('SERVER_GAMEOVER: msgSize does not match message length');
+				throw new PacketParseError(
+					'SERVER_GAMEOVER: msgSize does not match message length',
+				);
 			}
 			const winningAllyTeams = new Array<number>(msgSize - 3);
 			for (let i = 0; i < msgSize - 3; i++) {
@@ -394,9 +408,11 @@ export function parsePacket(msg: Buffer): Event {
 			// We split the destination into two fields for easier processing.
 			let destinationType: ChatDestination;
 			let toPlayer: number | undefined;
-			if (destination == ChatDestination.TO_ALLIES
-				|| destination == ChatDestination.TO_SPECTATORS
-				|| destination == ChatDestination.TO_EVERYONE) {
+			if (
+				destination == ChatDestination.TO_ALLIES ||
+				destination == ChatDestination.TO_SPECTATORS ||
+				destination == ChatDestination.TO_EVERYONE
+			) {
 				destinationType = destination;
 			} else {
 				toPlayer = destination;
@@ -406,7 +422,7 @@ export function parsePacket(msg: Buffer): Event {
 				type,
 				fromPlayer: msg.readUInt8(1),
 				destination: destinationType,
-				message: msg.toString('utf8', 3)
+				message: msg.toString('utf8', 3),
 			};
 			if (toPlayer !== undefined) {
 				res.toPlayer = toPlayer;
@@ -428,12 +444,16 @@ export function parsePacket(msg: Buffer): Event {
 			}
 			const packetSize = msg.readUInt16LE(2);
 			if (packetSize != msg.length - 1) {
-				throw new PacketParseError('GAME_LUAMSG: packet size does not match message length');
+				throw new PacketParseError(
+					'GAME_LUAMSG: packet size does not match message length',
+				);
 			}
 			const script = msg.readUInt16LE(5);
-			if (script != LuaMsgScript.UI
-				&& script != LuaMsgScript.GAIA
-				&& script != LuaMsgScript.RULES) {
+			if (
+				script != LuaMsgScript.UI &&
+				script != LuaMsgScript.GAIA &&
+				script != LuaMsgScript.RULES
+			) {
 				throw new PacketParseError(`GAME_LUAMSG: invalid script: ${script}`);
 			}
 			const res: EvGameLuaMsg = {
@@ -444,15 +464,18 @@ export function parsePacket(msg: Buffer): Event {
 			};
 			const uiMode = msg.readUInt8(7);
 			if (script == LuaMsgScript.UI) {
-				if (uiMode != LuaMsgUIMode.ALL
-					&& uiMode != LuaMsgUIMode.ALLIES
-					&& uiMode != LuaMsgUIMode.SPECTATORS) {
+				if (
+					uiMode != LuaMsgUIMode.ALL &&
+					uiMode != LuaMsgUIMode.ALLIES &&
+					uiMode != LuaMsgUIMode.SPECTATORS
+				) {
 					throw new PacketParseError(`GAME_LUAMSG: invalid UI mode: ${uiMode}`);
 				}
 				res.uiMode = uiMode;
 			} else if (uiMode != 0) {
 				throw new PacketParseError(
-					`GAME_LUAMSG: expected mode 0 for ${LuaMsgScript[script]}, got ${uiMode}`);
+					`GAME_LUAMSG: expected mode 0 for ${LuaMsgScript[script]}, got ${uiMode}`,
+				);
 			}
 			return res;
 		}
@@ -462,26 +485,26 @@ export function parsePacket(msg: Buffer): Event {
 			}
 			let off;
 			const stats: TeamStatistics = {
-				frame: msg.readInt32LE(off = 2),
-				metalUsed: msg.readFloatLE(off += 4),
-				energyUsed: msg.readFloatLE(off += 4),
-				metalProduced: msg.readFloatLE(off += 4),
-				energyProduced: msg.readFloatLE(off += 4),
-				metalExcess: msg.readFloatLE(off += 4),
-				energyExcess: msg.readFloatLE(off += 4),
-				metalReceived: msg.readFloatLE(off += 4),
-				energyReceived: msg.readFloatLE(off += 4),
-				metalSent: msg.readFloatLE(off += 4),
-				energySent: msg.readFloatLE(off += 4),
-				damageDealt: msg.readFloatLE(off += 4),
-				damageReceived: msg.readFloatLE(off += 4),
-				unitsProduced: msg.readInt32LE(off += 4),
-				unitsDied: msg.readInt32LE(off += 4),
-				unitsReceived: msg.readInt32LE(off += 4),
-				unitsSent: msg.readInt32LE(off += 4),
-				unitsCaptured: msg.readInt32LE(off += 4),
-				unitsOutCaptured: msg.readInt32LE(off += 4),
-				unitsKilled: msg.readInt32LE(off += 4),
+				frame: msg.readInt32LE((off = 2)),
+				metalUsed: msg.readFloatLE((off += 4)),
+				energyUsed: msg.readFloatLE((off += 4)),
+				metalProduced: msg.readFloatLE((off += 4)),
+				energyProduced: msg.readFloatLE((off += 4)),
+				metalExcess: msg.readFloatLE((off += 4)),
+				energyExcess: msg.readFloatLE((off += 4)),
+				metalReceived: msg.readFloatLE((off += 4)),
+				energyReceived: msg.readFloatLE((off += 4)),
+				metalSent: msg.readFloatLE((off += 4)),
+				energySent: msg.readFloatLE((off += 4)),
+				damageDealt: msg.readFloatLE((off += 4)),
+				damageReceived: msg.readFloatLE((off += 4)),
+				unitsProduced: msg.readInt32LE((off += 4)),
+				unitsDied: msg.readInt32LE((off += 4)),
+				unitsReceived: msg.readInt32LE((off += 4)),
+				unitsSent: msg.readInt32LE((off += 4)),
+				unitsCaptured: msg.readInt32LE((off += 4)),
+				unitsOutCaptured: msg.readInt32LE((off += 4)),
+				unitsKilled: msg.readInt32LE((off += 4)),
 			};
 			return { type, teamNumber: msg.readUInt8(1), stats };
 		}

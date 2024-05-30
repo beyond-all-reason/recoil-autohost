@@ -3,10 +3,13 @@ import StartRequestSchema from './schemas/startRequest.json' assert { type: 'jso
 import * as tdf from 'recoil-tdf';
 
 function shareKey(a: object, b: object): boolean {
-	return Object.keys(a).some(k => Object.hasOwn(b, k));
+	return Object.keys(a).some((k) => Object.hasOwn(b, k));
 }
 
-function mergeCustomOpts(o: tdf.TDFSerializable, p: { customOpts?: { [k: string]: string; } }): tdf.TDFSerializable {
+function mergeCustomOpts(
+	o: tdf.TDFSerializable,
+	p: { customOpts?: { [k: string]: string } },
+): tdf.TDFSerializable {
 	if (p.customOpts) {
 		if (shareKey(o, p.customOpts)) {
 			throw new Error('customOpts must have different keys then outer object');
@@ -23,7 +26,7 @@ function buildAllyTeam(numAllyTeams: number, at: AllyTeam): tdf.TDFSerializable 
 			'StartRectTop': at.startbox.top,
 			'StartRectLeft': at.startbox.left,
 			'StartRectBottom': at.startbox.bottom,
-			'StartRectRight': at.startbox.right
+			'StartRectRight': at.startbox.right,
 		};
 	}
 	if (at.allies) {
@@ -38,13 +41,17 @@ function buildAllyTeam(numAllyTeams: number, at: AllyTeam): tdf.TDFSerializable 
 	return mergeCustomOpts(o, at);
 }
 
-function buildTeam(allyTeamIdx: number, playersMap: Map<string, number>, team: Team): tdf.TDFSerializable {
+function buildTeam(
+	allyTeamIdx: number,
+	playersMap: Map<string, number>,
+	team: Team,
+): tdf.TDFSerializable {
 	if ((!team.players || team.players.length == 0) && (!team.ais || team.ais.length == 0)) {
 		throw new Error('There must be at least one player or AI in each team');
 	}
 	const o: tdf.TDFSerializable = {
 		'AllyTeam': allyTeamIdx,
-		'TeamLeader': playersMap.get(team.players?.[0]?.name ?? team.ais![0].hostPlayer!)!
+		'TeamLeader': playersMap.get(team.players?.[0]?.name ?? team.ais![0].hostPlayer!)!,
 	};
 	if (team.advantage !== undefined) o['Advantage'] = team.advantage;
 	if (team.incomeMultiplier !== undefined) o['IncomeMultiplier'] = team.incomeMultiplier;
@@ -87,14 +94,18 @@ function buildAI(teamIdx: number, playersMap: Map<string, number>, ai: AI): tdf.
 	return o;
 }
 
-export function scriptGameFromStartRequest(req: StartRequest): { [k: string]: (tdf.TDFSerializable | string | number | boolean) } {
+export function scriptGameFromStartRequest(req: StartRequest): {
+	[k: string]: tdf.TDFSerializable | string | number | boolean;
+} {
 	const g: tdf.TDFSerializable = {
 		'GameID': req.gameUUID,
 		'GameType': req.modName,
 		'MapName': req.mapName,
 		'ModHash': req.modHash ?? '1',
 		'MapHash': req.mapHash ?? '1',
-		'StartPosType': StartRequestSchema.properties.startPosType.enum.findIndex(v => v == req.startPosType),
+		'StartPosType': StartRequestSchema.properties.startPosType.enum.findIndex(
+			(v) => v == req.startPosType,
+		),
 		'MODOPTIONS': req.modOptions ?? {},
 		'MAPOPTIONS': req.mapOptions ?? {},
 	};
@@ -116,8 +127,8 @@ export function scriptGameFromStartRequest(req: StartRequest): { [k: string]: (t
 	// We build the playersMap early here so that we can easily lookup
 	// players by their name in the loop below.
 	const players = req.allyTeams
-		.flatMap(at => at.teams)
-		.flatMap(t => (t.players ?? []))
+		.flatMap((at) => at.teams)
+		.flatMap((t) => t.players ?? [])
 		.concat(req.spectators ?? []);
 	const playersMap = new Map(players.map((p, idx) => [p.name, idx]));
 	if (players.length != playersMap.size) {
@@ -132,17 +143,17 @@ export function scriptGameFromStartRequest(req: StartRequest): { [k: string]: (t
 		g[`ALLYTEAM${atIdx}`] = buildAllyTeam(req.allyTeams.length, at);
 		for (const team of at.teams) {
 			g[`TEAM${teamIdx}`] = buildTeam(atIdx, playersMap, team);
-			for (const p of (team.players ?? [])) {
+			for (const p of team.players ?? []) {
 				g[`PLAYER${playerIdx++}`] = buildPlayer(teamIdx, p);
 			}
-			for (const ai of (team.ais ?? [])) {
+			for (const ai of team.ais ?? []) {
 				g[`AI${aiIdx++}`] = buildAI(teamIdx, playersMap, ai);
 			}
 			++teamIdx;
 		}
 	}
 
-	for (const p of (req.spectators ?? [])) {
+	for (const p of req.spectators ?? []) {
 		g[`PLAYER${playerIdx++}`] = buildPlayer(null, p);
 	}
 

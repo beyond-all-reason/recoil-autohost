@@ -27,14 +27,14 @@ const demoStartRequest: StartRequest = {
 	mapName: 'map v1',
 	modName: 'mod v1',
 	startPosType: 'fixed',
-	allyTeams: [{ teams: [] }]
+	allyTeams: [{ teams: [] }],
 };
 
 const optsBase = {
 	startRequest: demoStartRequest,
 	hostIP: '127.0.0.1',
 	hostPort: 8452,
-	autohostPort: testPort
+	autohostPort: testPort,
 };
 
 const origCwd = process.cwd();
@@ -142,7 +142,7 @@ test('engineRunner full run simulated engine', async () => {
 		]) {
 			await asyncSetImmediate();
 			s.send(packet);
-			const msg = await events.once(s, 'message') as [Buffer, dgram.RemoteInfo];
+			const msg = (await events.once(s, 'message')) as [Buffer, dgram.RemoteInfo];
 			assert.equal(msg[0].toString('utf8'), `test${packet[0]}`);
 		}
 

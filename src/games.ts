@@ -19,7 +19,7 @@ export class GamesManager {
 
 		this.games.set(req.gameUUID, er);
 
-		er.on('error' , (err) => {
+		er.on('error', (err) => {
 			console.error(`game ${req.gameUUID}: error`, err);
 			this.games.delete(req.gameUUID);
 		});

@@ -2,9 +2,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-	parsePacket, EventType, LuaMsgScript, LuaMsgUIMode,
-	PacketParseError, LeaveReason, ReadyState, ChatDestination,
-	PacketSerializeError, serializeMessagePacket, serializeCommandPacket
+	parsePacket,
+	EventType,
+	LuaMsgScript,
+	LuaMsgUIMode,
+	PacketParseError,
+	LeaveReason,
+	ReadyState,
+	ChatDestination,
+	PacketSerializeError,
+	serializeMessagePacket,
+	serializeCommandPacket,
 } from './autohostInterface.js';
 
 test('parse SERVER_STARTED', () => {
@@ -26,11 +34,17 @@ test('parse SERVER_QUIT', () => {
 });
 
 test('parse SERVER_STARTPLAYING', () => {
-	const event = parsePacket(Buffer.from('02a40000002e9836666a18a55fbcc6228ee62217492f686f6d652f73706164732f73706164732f7661722f436c75737465724d616e616765722f5b7465685d636c75737465725553345b31305d2f64656d6f732d7365727665722f323032342d30352d30345f32302d31382d35342d3236305f48656c6c617320426173696e2076315f3130352e312e312d323434392d6766313233346139204241523130352e7364667a', 'hex'));
+	const event = parsePacket(
+		Buffer.from(
+			'02a40000002e9836666a18a55fbcc6228ee62217492f686f6d652f73706164732f73706164732f7661722f436c75737465724d616e616765722f5b7465685d636c75737465725553345b31305d2f64656d6f732d7365727665722f323032342d30352d30345f32302d31382d35342d3236305f48656c6c617320426173696e2076315f3130352e312e312d323434392d6766313233346139204241523130352e7364667a',
+			'hex',
+		),
+	);
 	assert.deepEqual(event, {
 		type: EventType.SERVER_STARTPLAYING,
 		gameId: '2e9836666a18a55fbcc6228ee6221749',
-		demoPath: '/home/spads/spads/var/ClusterManager/[teh]clusterUS4[10]/demos-server/2024-05-04_20-18-54-260_Hellas Basin v1_105.1.1-2449-gf1234a9 BAR105.sdfz'
+		demoPath:
+			'/home/spads/spads/var/ClusterManager/[teh]clusterUS4[10]/demos-server/2024-05-04_20-18-54-260_Hellas Basin v1_105.1.1-2449-gf1234a9 BAR105.sdfz',
 	});
 
 	assert.throws(() => {
@@ -38,7 +52,12 @@ test('parse SERVER_STARTPLAYING', () => {
 	}, PacketParseError);
 
 	assert.throws(() => {
-		parsePacket(Buffer.from('02a40000002e9836666a18a55fbcc6228ee62217492f686f6d652f73706164732f73706164732f7661722f436c75737465724d616e616765722f5b7465685d636c75737465725553345b3130', 'hex'));
+		parsePacket(
+			Buffer.from(
+				'02a40000002e9836666a18a55fbcc6228ee62217492f686f6d652f73706164732f73706164732f7661722f436c75737465724d616e616765722f5b7465685d636c75737465725553345b3130',
+				'hex',
+			),
+		);
 	}, PacketParseError);
 });
 
@@ -47,7 +66,7 @@ test('parse SERVER_GAMEOVER', () => {
 	assert.deepEqual(event, {
 		type: EventType.SERVER_GAMEOVER,
 		player: 6,
-		winningAllyTeams: [1]
+		winningAllyTeams: [1],
 	});
 
 	assert.throws(() => {
@@ -56,10 +75,15 @@ test('parse SERVER_GAMEOVER', () => {
 });
 
 test('parse SERVER_MESSAGE', () => {
-	const event = parsePacket(Buffer.from('04436f6e6e656374696e6720746f206175746f686f7374206f6e20706f7274203533313232', 'hex'));
+	const event = parsePacket(
+		Buffer.from(
+			'04436f6e6e656374696e6720746f206175746f686f7374206f6e20706f7274203533313232',
+			'hex',
+		),
+	);
 	assert.deepEqual(event, {
 		type: EventType.SERVER_MESSAGE,
-		message: 'Connecting to autohost on port 53122'
+		message: 'Connecting to autohost on port 53122',
 	});
 });
 
@@ -67,7 +91,7 @@ test('parse SERVER_WARNING', () => {
 	const event = parsePacket(Buffer.from('054f6e6c696e65207761726e696e67206c6f6c', 'hex'));
 	assert.deepEqual(event, {
 		type: EventType.SERVER_WARNING,
-		message: 'Online warning lol'
+		message: 'Online warning lol',
 	});
 });
 
@@ -76,7 +100,7 @@ test('parse PLAYER_JOINED', () => {
 	assert.deepEqual(event, {
 		type: EventType.PLAYER_JOINED,
 		player: 11,
-		name: 'Axe'
+		name: 'Axe',
 	});
 	assert.throws(() => {
 		parsePacket(Buffer.from('0a0b', 'hex'));
@@ -87,17 +111,17 @@ test('parse PLAYER_LEFT', () => {
 	assert.deepEqual(parsePacket(Buffer.from('0b1201', 'hex')), {
 		type: EventType.PLAYER_LEFT,
 		player: 18,
-		reason: LeaveReason.LEFT
+		reason: LeaveReason.LEFT,
 	});
 	assert.deepEqual(parsePacket(Buffer.from('0b0400', 'hex')), {
 		type: EventType.PLAYER_LEFT,
 		player: 4,
-		reason: LeaveReason.LOST_CONNECTION
+		reason: LeaveReason.LOST_CONNECTION,
 	});
 	assert.deepEqual(parsePacket(Buffer.from('0b1202', 'hex')), {
 		type: EventType.PLAYER_LEFT,
 		player: 18,
-		reason: LeaveReason.KICKED
+		reason: LeaveReason.KICKED,
 	});
 	assert.throws(() => {
 		parsePacket(Buffer.from('0b12', 'hex'));
@@ -111,17 +135,17 @@ test('parse PLAYER_READY', () => {
 	assert.deepEqual(parsePacket(Buffer.from('0c0200', 'hex')), {
 		type: EventType.PLAYER_READY,
 		player: 2,
-		state: ReadyState.NOT_READY
+		state: ReadyState.NOT_READY,
 	});
 	assert.deepEqual(parsePacket(Buffer.from('0c0d01', 'hex')), {
 		type: EventType.PLAYER_READY,
 		player: 13,
-		state: ReadyState.READY
+		state: ReadyState.READY,
 	});
 	assert.deepEqual(parsePacket(Buffer.from('0c0d02', 'hex')), {
 		type: EventType.PLAYER_READY,
 		player: 13,
-		state: ReadyState.FORCED
+		state: ReadyState.FORCED,
 	});
 	assert.throws(() => {
 		parsePacket(Buffer.from('0c0d', 'hex'));
@@ -136,26 +160,26 @@ test('parse PLAYER_CHAT', () => {
 		type: EventType.PLAYER_CHAT,
 		fromPlayer: 8,
 		destination: ChatDestination.TO_ALLIES,
-		message: 'nice'
+		message: 'nice',
 	});
 	assert.deepEqual(parsePacket(Buffer.from('0d0bfe72657369676e', 'hex')), {
 		type: EventType.PLAYER_CHAT,
 		fromPlayer: 11,
 		destination: ChatDestination.TO_EVERYONE,
-		message: 'resign'
+		message: 'resign',
 	});
 	assert.deepEqual(parsePacket(Buffer.from('0d11fd6c6f6c', 'hex')), {
 		type: EventType.PLAYER_CHAT,
 		fromPlayer: 17,
 		destination: ChatDestination.TO_SPECTATORS,
-		message: 'lol'
+		message: 'lol',
 	});
 	assert.deepEqual(parsePacket(Buffer.from('0d11016c6f6c', 'hex')), {
 		type: EventType.PLAYER_CHAT,
 		fromPlayer: 17,
 		toPlayer: 1,
 		destination: ChatDestination.TO_PLAYER,
-		message: 'lol'
+		message: 'lol',
 	});
 	assert.throws(() => {
 		parsePacket(Buffer.from('0d11', 'hex'));
@@ -178,10 +202,12 @@ test('parse GAME_LUAMSG', () => {
 		type: EventType.GAME_LUAMSG,
 		script: LuaMsgScript.RULES,
 		player: 10,
-		data: Buffer.from('407a683630', 'hex')
+		data: Buffer.from('407a683630', 'hex'),
 	});
 
-	const event2 = parsePacket(Buffer.from('1432180000d0070044726166744f726465725f52616e646f6d', 'hex'));
+	const event2 = parsePacket(
+		Buffer.from('1432180000d0070044726166744f726465725f52616e646f6d', 'hex'),
+	);
 	assert.deepEqual(event2, {
 		type: EventType.GAME_LUAMSG,
 		script: LuaMsgScript.UI,
@@ -200,7 +226,12 @@ test('parse GAME_LUAMSG', () => {
 });
 
 test('parse GAME_TEAMSTAT', () => {
-	const event = parsePacket(Buffer.from('3c0700e10000ade0ad470abc944a8c38d747b4138f4a000000004a052144a2208244d308ca48f19406461fdc5148da6d3f478c976947f50100000e010000010000000600000000000000000000004c000000', 'hex'));
+	const event = parsePacket(
+		Buffer.from(
+			'3c0700e10000ade0ad470abc944a8c38d747b4138f4a000000004a052144a2208244d308ca48f19406461fdc5148da6d3f478c976947f50100000e010000010000000600000000000000000000004c000000',
+			'hex',
+		),
+	);
 	assert.deepEqual(event, {
 		type: EventType.GAME_TEAMSTAT,
 		teamNumber: 7,
@@ -226,8 +257,8 @@ test('parse GAME_TEAMSTAT', () => {
 			unitsSent: 6,
 			unitsCaptured: 0,
 			unitsOutCaptured: 0,
-			unitsKilled: 76
-		}
+			unitsKilled: 76,
+		},
 	});
 	assert.throws(() => {
 		parsePacket(Buffer.from('3c0700e10000ade0', 'hex'));
@@ -246,12 +277,11 @@ test('serialize message', () => {
 
 test('serialize command', () => {
 	assert.deepEqual(serializeCommandPacket('cmd', []), Buffer.from('/cmd'));
-	assert.deepEqual(
-		serializeCommandPacket('a', ['1', '2', 'asd']),
-		Buffer.from('/a 1 2 asd'));
+	assert.deepEqual(serializeCommandPacket('a', ['1', '2', 'asd']), Buffer.from('/a 1 2 asd'));
 	assert.deepEqual(
 		serializeCommandPacket('b', ['1', '2', 'some text with stuff']),
-		Buffer.from('/b 1 2 some text with stuff'));
+		Buffer.from('/b 1 2 some text with stuff'),
+	);
 	assert.throws(() => {
 		serializeCommandPacket('', ['1', '2']);
 	}, PacketSerializeError);
