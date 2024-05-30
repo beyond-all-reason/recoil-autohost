@@ -1,64 +1,38 @@
-import { spawn } from 'child_process';
-import * as fs from 'node:fs/promises';
-import * as tdf from 'recoil-tdf';
-import * as path from 'node:path';
-import { StartRequest } from './types/startRequest.js';
-import { scriptGameFromStartRequest } from './startScriptGen.js';
-
-function serializeEngineSettings(obj: {[k: string]: string}): string {
-	return Object.entries(obj).map(([key, val]) => `${key}=${val}\n`).join('');
-}
+import type { StartRequest } from './types/startRequest.js';
+import { runEngine, type EngineRunner } from './engineRunner.js';
+import { EventType } from './autohostInterface.js';
 
 export class GamesManager {
-	async start(req: StartRequest): Promise<void> {
-		const instanceDir = path.resolve('instances', req.gameUUID);
-		await fs.mkdir(instanceDir, {recursive: true});
+	private games: Map<string, EngineRunner> = new Map();
 
-		const engineDir = path.resolve('engines', req.engineVersion);
-		if (!await fs.stat(engineDir).catch(() => null)) {
-			throw new Error(`engine version ${req.engineVersion} doesn't exist`);
+	async start(req: StartRequest): Promise<void> {
+		if (this.games.has(req.gameUUID)) {
+			throw new Error(`game ${req.gameUUID} already exists`);
 		}
 
-		const game = scriptGameFromStartRequest(req);
-		game['IsHost'] = 1;
-		game['HostIP'] = '0.0.0.0';
-		game['HostPort'] = 8452;
-		game['AutohostIP'] = '127.0.0.1';
-		game['AutohostPort'] = 13245;
-		const script = tdf.serialize({'GAME': game});
-
-		const scriptPath = path.join(instanceDir, 'script.txt');
-		await fs.writeFile(scriptPath, script);
-
-		// TODO: load spring settings from somewhere
-		const engineSettings = serializeEngineSettings({
-			'NetworkTimeout': '1000',
-			'InitialNetworkTimeout': '1000',
-		});
-		await fs.writeFile(path.join(instanceDir, 'springsettings.cfg'), engineSettings);
-
-		const child = spawn(
-			path.join(engineDir, 'spring-dedicated'),
-			['-isolation', scriptPath],
-			{
-				cwd: instanceDir,
-				stdio: 'ignore',
-				env: {
-					...process.env,
-					'SPRING_WRITEDIR': instanceDir
-				}
-			});
-
-		child.on('exit', (code, signal) => {
-			console.log(`${req.gameUUID} finished with (${code}, ${signal})`);
+		const er = runEngine({
+			startRequest: req,
+			hostIP: '127.0.0.1',
+			hostPort: 8452,
+			autohostPort: 13245,
 		});
 
-		child.on('error', (err) => {
-			console.log(`Failed to spawn ${req.gameUUID}: ${err}`);
+		this.games.set(req.gameUUID, er);
+
+		er.on('error' , (err) => {
+			console.error(`game ${req.gameUUID}: error`, err);
+			this.games.delete(req.gameUUID);
 		});
 
-		child.on('spawn', () => {
-			console.log(`${req.gameUUID} spawned`);
+		er.on('exit', () => {
+			console.log(`game ${req.gameUUID}: exited`);
+			this.games.delete(req.gameUUID);
+		});
+
+		er.on('packet', (packet) => {
+			if (packet.type !== EventType.GAME_LUAMSG) {
+				console.log(`game ${req.gameUUID}: packet:`, packet);
+			}
 		});
 	}
 }

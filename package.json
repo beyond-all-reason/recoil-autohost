@@ -19,7 +19,8 @@
   "dependencies": {
     "@fastify/websocket": "^8.3.1",
     "fastify": "^4.26.0",
-    "recoil-tdf": "^1.0.0"
+    "recoil-tdf": "^1.0.0",
+    "tiny-typed-emitter": "^2.1.0"
   },
   "devDependencies": {
     "@tsconfig/node20": "^20.1.2",
