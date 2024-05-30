@@ -16,26 +16,24 @@
   "license": "Apache-2.0",
   "type": "module",
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "dependencies": {
-    "@fastify/websocket": "^8.3.1",
-    "fastify": "^4.26.0",
+    "fastify": "^4.27.0",
     "recoil-tdf": "^1.0.0",
     "tiny-typed-emitter": "^2.1.0"
   },
   "devDependencies": {
-    "@tsconfig/node20": "^20.1.2",
-    "@types/node": "^20.11.16",
-    "@types/ws": "^8.5.10",
-    "@typescript-eslint/eslint-plugin": "^6.20.0",
-    "@typescript-eslint/parser": "^6.20.0",
-    "eslint": "^8.56.0",
+    "@tsconfig/node20": "^20.1.4",
+    "@types/node": "^20.12.13",
+    "@typescript-eslint/eslint-plugin": "^7.11.0",
+    "@typescript-eslint/parser": "^7.11.0",
+    "eslint": "8.57.0",
     "eslint-config-prettier": "^9.1.0",
-    "json-schema-to-typescript": "^13.1.2",
-    "pino-pretty": "^10.3.1",
+    "json-schema-to-typescript": "^14.0.4",
+    "pino-pretty": "^11.1.0",
     "prettier": "3.2.5",
-    "typescript": "^5.3.3"
+    "typescript": "^5.4.5"
   },
   "optionalDependencies": {
     "bufferutil": "^4.0.8"
