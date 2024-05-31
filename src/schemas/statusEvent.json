@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://beyondallreason.dev/schema/tachyon/autohost/status/event",
+  "title": "StatusEvent",
+  "type": "object",
+  "properties": {
+    "maxGames": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "currentGames": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "required": ["maxGames", "currentGames"],
+  "additionalProperties": true
+}

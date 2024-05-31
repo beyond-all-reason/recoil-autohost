@@ -1,0 +1,107 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://beyondallreason.dev/schema/tachyon/baseMessage",
+  "title": "TachyonMessage",
+  "oneOf": [
+    { "$ref": "#/$defs/request" },
+    { "$ref": "#/$defs/responseOk" },
+    { "$ref": "#/$defs/responseFail" },
+    { "$ref": "#/$defs/event" }
+  ],
+  "$defs": {
+    "base": {
+      "title": "TachyonBaseMessage",
+      "type": "object",
+      "properties": {
+        "type": {
+          "enum": ["request", "response", "event"]
+        },
+        "messageId": {
+          "type": "string"
+        },
+        "commandId": {
+          "type": "string"
+        }
+      },
+      "required": ["type", "messageId", "commandId"],
+      "additionalProperties": true
+    },
+    "request": {
+      "title": "TachyonRequest",
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        {
+          "properties": {
+            "type": {
+              "const": "request"
+            },
+            "data": {
+              "type": "object",
+              "tsType": "unknown"
+            }
+          },
+          "required": ["type", "data"]
+        }
+      ]
+    },
+    "event": {
+      "title": "TachyonEvent",
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        {
+          "properties": {
+            "type": {
+              "const": "event"
+            },
+            "data": {
+              "type": "object",
+              "tsType": "unknown"
+            }
+          },
+          "required": ["type", "data"]
+        }
+      ]
+    },
+    "responseOk": {
+      "title": "TachyonResponseOk",
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        {
+          "properties": {
+            "type": {
+              "const": "response"
+            },
+            "status": {
+              "const": "success"
+            },
+            "data": {
+              "type": "object",
+              "tsType": "unknown"
+            }
+          },
+          "required": ["type", "status", "data"]
+        }
+      ]
+    },
+    "responseFail": {
+      "title": "TachyonResponseFail",
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        {
+          "properties": {
+            "type": {
+              "const": "response"
+            },
+            "status": {
+              "const": "failed"
+            },
+            "reason": {
+              "enum": ["invalid_request", "not_implemented", "internal_error"]
+            }
+          },
+          "required": ["type", "status", "reason"]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,217 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://beyondallreason.dev/schema/tachyon/autohost/battleUpdate/event",
+  "title": "BattleUpdateEvent",
+  "type": "object",
+  "properties": {
+    "battleId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "time": {
+      "type": "integer",
+      "description": "Unix timestamp in microseconds"
+    },
+    "update": {
+      "oneOf": [
+        { "$ref": "#/$defs/battleStart" },
+        { "$ref": "#/$defs/battleOver" },
+        { "$ref": "#/$defs/battleServerMessage" },
+        { "$ref": "#/$defs/battleServerWarning" },
+        { "$ref": "#/$defs/battleServerQuit" },
+        { "$ref": "#/$defs/battleServerCrash" },
+        { "$ref": "#/$defs/playerJoined" },
+        { "$ref": "#/$defs/playerLeft" },
+        { "$ref": "#/$defs/playerChat" },
+        { "$ref": "#/$defs/playerDefeated" },
+        { "$ref": "#/$defs/luamsg" }
+      ]
+    }
+  },
+  "required": ["battleId", "time", "update"],
+  "additionalProperties": false,
+  "$defs": {
+    "battleStart": {
+      "type": "object",
+      "title": "BattleStartUpdate",
+      "properties": {
+        "type": {
+          "const": "battle_start"
+        }
+      },
+      "required": ["type"],
+      "additionalProperties": false
+    },
+    "battleOver": {
+      "type": "object",
+      "title": "BattleOverUpdate",
+      "properties": {
+        "type": {
+          "const": "battle_over"
+        },
+        "userId": {
+          "type": "string"
+        },
+        "winningAllyTeams": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "integer",
+            "description": "Ally team IDs"
+          }
+        }
+      },
+      "required": ["type", "userId", "winningAllyTeams"],
+      "additionalProperties": false
+    },
+    "battleServerMessage": {
+      "type": "object",
+      "title": "BattleServerMessageUpdate",
+      "properties": {
+        "type": {
+          "const": "battle_server_message"
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": ["type", "message"],
+      "additionalProperties": false
+    },
+    "battleServerWarning": {
+      "type": "object",
+      "title": "BattleServerWarningUpdate",
+      "properties": {
+        "type": {
+          "const": "battle_server_warning"
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": ["type", "message"],
+      "additionalProperties": false
+    },
+    "battleServerQuit": {
+      "type": "object",
+      "title": "BattleServerQuitUpdate",
+      "properties": {
+        "type": {
+          "const": "battle_server_quit"
+        }
+      },
+      "required": ["type"],
+      "additionalProperties": false
+    },
+    "battleServerCrash": {
+      "type": "object",
+      "title": "BattleServerCrashUpdate",
+      "properties": {
+        "type": {
+          "const": "battle_server_crash"
+        }
+      },
+      "required": ["type"],
+      "additionalProperties": false
+    },
+    "playerJoined": {
+      "type": "object",
+      "title": "PlayerJoinedUpdate",
+      "properties": {
+        "type": {
+          "const": "player_joined"
+        },
+        "userId": {
+          "type": "string"
+        },
+        "playerNumber": {
+          "type": "integer",
+          "description": "Player number in the game, can be useful for custom commands"
+        }
+      },
+      "required": ["type", "userId", "playerNumber"],
+      "additionalProperties": false
+    },
+    "playerLeft": {
+      "type": "object",
+      "title": "PlayerLeftUpdate",
+      "properties": {
+        "type": {
+          "const": "player_left"
+        },
+        "userId": {
+          "type": "string"
+        },
+        "reason": {
+          "enum": ["lost_connection", "left", "kicked"]
+        }
+      },
+      "required": ["type", "userId", "reason"],
+      "additionalProperties": false
+    },
+    "playerChat": {
+      "type": "object",
+      "title": "PlayerChatUpdate",
+      "properties": {
+        "type": {
+          "const": "player_chat"
+        },
+        "userId": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "destination": {
+          "enum": ["allies", "all", "spectators", "player"]
+        },
+        "toUserId": {
+          "type": "string",
+          "$comment": "Only if destination is 'player'"
+        }
+      },
+      "required": ["type", "userId", "message", "destination"],
+      "additionalProperties": false
+    },
+    "playerDefeated": {
+      "type": "object",
+      "title": "PlayerDefeatedUpdate",
+      "properties": {
+        "type": {
+          "const": "player_defeated"
+        },
+        "userId": {
+          "type": "string"
+        }
+      },
+      "required": ["type", "userId"],
+      "additionalProperties": false
+    },
+    "luamsg": {
+      "type": "object",
+      "title": "LuaMsgUpdate",
+      "properties": {
+        "type": {
+          "const": "luamsg"
+        },
+        "userId": {
+          "type": "string"
+        },
+        "script": {
+          "enum": ["ui", "gaia", "rules"]
+        },
+        "uiMode": {
+          "enum": ["all", "allies", "spectators"],
+          "$comment": "Only if script is 'ui'"
+        },
+        "data": {
+          "type": "string",
+          "contentEncoding": "base64",
+          "contentMediaType": "application/octet-stream"
+        }
+      },
+      "required": ["type", "userId", "script", "data"],
+      "additionalProperties": false
+    }
+  }
+}
