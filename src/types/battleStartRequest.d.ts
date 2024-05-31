@@ -10,20 +10,20 @@
  */
 export type Zero2One = number;
 
-export interface StartRequest {
-	gameUUID: string;
+export interface BattleStartRequest {
+	battleId: string;
 	engineVersion: string;
-	modName: string;
+	gameName: string;
 	mapName: string;
-	modHash?: string;
-	mapHash?: string;
+	gameArchiveHash?: string;
+	mapArchiveHash?: string;
 	mapOptions?: {
 		[k: string]: string;
 	};
-	modOptions?: {
+	gameOptions?: {
 		[k: string]: string;
 	};
-	gameStartDelay?: number;
+	startDelay?: number;
 	startPosType: 'fixed' | 'random' | 'ingame' | 'beforegame';
 	/**
 	 * @minItems 1
@@ -73,8 +73,9 @@ export interface Team {
 	};
 }
 export interface Player {
+	userId: string;
 	/**
-	 * Name of the player, must be unique
+	 * Name of the player, must be unique just like userId
 	 */
 	name: string;
 	password: string;
@@ -86,9 +87,9 @@ export interface Player {
 }
 export interface AI {
 	/**
-	 * Name of the player hosting this AI
+	 * UserId of the player hosting this AI
 	 */
-	hostPlayer: string;
+	hostUserId: string;
 	shortName: string;
 	version?: string;
 	name?: string;

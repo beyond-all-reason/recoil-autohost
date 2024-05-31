@@ -1,26 +1,27 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { StartRequest } from './types/startRequest.js';
+import { BattleStartRequest } from './types/battleStartRequest.js';
 import { scriptGameFromStartRequest } from './startScriptGen.js';
 
 test('simple full example', () => {
-	const startReq: StartRequest = {
-		gameUUID: 'e4f9f751-3626-48eb-bb8b-1ff8f25e12f9',
+	const startReq: BattleStartRequest = {
+		battleId: 'e4f9f751-3626-48eb-bb8b-1ff8f25e12f9',
 		engineVersion: 'recoil 2024.08.15-gdefse23',
-		modName: 'Game 22',
+		gameName: 'Game 22',
 		mapName: 'de_duck 1.2',
-		modHash:
+		gameArchiveHash:
 			'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
-		mapHash:
+		mapArchiveHash:
 			'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
 		startPosType: 'ingame',
-		gameStartDelay: 10,
+		startDelay: 10,
 		allyTeams: [
 			{
 				teams: [
 					{
 						players: [
 							{
+								userId: '730c874d-e5a3-4c24-a053-fcb2cfb23b32',
 								name: 'Player 1',
 								password: '87dw9cnqr86437w',
 								countryCode: 'NA',
@@ -56,7 +57,7 @@ test('simple full example', () => {
 						},
 						ais: [
 							{
-								hostPlayer: 'Player 1',
+								hostUserId: '730c874d-e5a3-4c24-a053-fcb2cfb23b32',
 								shortName: 'BARb',
 								version: '3.2',
 								name: 'AI 1',
@@ -81,6 +82,7 @@ test('simple full example', () => {
 		],
 		spectators: [
 			{
+				userId: '7cd7fbda-44c8-4986-afc9-1f5d8b68e59e',
 				name: 'Player 2',
 				password: 'asd',
 				countryCode: 'PL',
@@ -93,7 +95,7 @@ test('simple full example', () => {
 		mapOptions: {
 			'waterLevel': '1000',
 		},
-		modOptions: {
+		gameOptions: {
 			'bigGun': 'asdasd',
 		},
 		restrictions: {
@@ -140,6 +142,7 @@ test('simple full example', () => {
 		},
 		'PLAYER0': {
 			'Name': 'Player 1',
+			'UserID': '730c874d-e5a3-4c24-a053-fcb2cfb23b32',
 			'Password': '87dw9cnqr86437w',
 			'Team': 0,
 			'CountryCode': 'NA',
@@ -175,6 +178,7 @@ test('simple full example', () => {
 		},
 		'PLAYER1': {
 			'Name': 'Player 2',
+			'UserID': '7cd7fbda-44c8-4986-afc9-1f5d8b68e59e',
 			'Password': 'asd',
 			'Spectator': 1,
 			'CountryCode': 'PL',
@@ -191,10 +195,10 @@ test('simple full example', () => {
 	assert.deepStrictEqual(actual, expected);
 });
 
-const throwStartReqBase: StartRequest = {
-	gameUUID: 'e4f9f751-3626-48eb-bb8b-1ff8f25e12f9',
+const throwStartReqBase: BattleStartRequest = {
+	battleId: 'e4f9f751-3626-48eb-bb8b-1ff8f25e12f9',
 	engineVersion: 'recoil 2024.08.15-gdefse23',
-	modName: 'Game 22',
+	gameName: 'Game 22',
 	mapName: 'de_duck 1.2',
 	startPosType: 'ingame',
 	allyTeams: [{ teams: [] }],
@@ -202,7 +206,7 @@ const throwStartReqBase: StartRequest = {
 
 test('throw on non-unique players', () => {
 	// Players in different teams.
-	const startReq1: StartRequest = {
+	const startReq1: BattleStartRequest = {
 		...throwStartReqBase,
 		allyTeams: [
 			{
@@ -210,6 +214,7 @@ test('throw on non-unique players', () => {
 					{
 						players: [
 							{
+								userId: '730c874d-e5a3-4c24-a053-fcb2cfb23b32',
 								name: 'Player 1',
 								password: '87dw9cnqr86437w',
 							},
@@ -222,6 +227,7 @@ test('throw on non-unique players', () => {
 					{
 						players: [
 							{
+								userId: '730c874d-e5a3-4c24-a053-fcb2cfb23b32',
 								name: 'Player 1',
 								password: '87dw9cnqr86437w',
 							},
@@ -234,7 +240,7 @@ test('throw on non-unique players', () => {
 	assert.throws(() => scriptGameFromStartRequest(startReq1));
 
 	// Also in spectators.
-	const startReq2: StartRequest = {
+	const startReq2: BattleStartRequest = {
 		...throwStartReqBase,
 		allyTeams: [
 			{
@@ -242,6 +248,7 @@ test('throw on non-unique players', () => {
 					{
 						players: [
 							{
+								userId: '730c874d-e5a3-4c24-a053-fcb2cfb23b32',
 								name: 'Player 1',
 								password: '87dw9cnqr86437w',
 							},
@@ -252,6 +259,7 @@ test('throw on non-unique players', () => {
 		],
 		spectators: [
 			{
+				userId: '730c874d-e5a3-4c24-a053-fcb2cfb23b32',
 				name: 'Player 1',
 				password: '87dw9cnqr86437w',
 			},
@@ -261,7 +269,7 @@ test('throw on non-unique players', () => {
 });
 
 test('at least one ai/player is required', () => {
-	const startReq: StartRequest = {
+	const startReq: BattleStartRequest = {
 		...throwStartReqBase,
 		allyTeams: [
 			{
@@ -273,7 +281,7 @@ test('at least one ai/player is required', () => {
 });
 
 test("custom opts can't override built-in fields", () => {
-	const startReq: StartRequest = {
+	const startReq: BattleStartRequest = {
 		...throwStartReqBase,
 		allyTeams: [
 			{
@@ -281,6 +289,7 @@ test("custom opts can't override built-in fields", () => {
 					{
 						players: [
 							{
+								userId: '730c874d-e5a3-4c24-a053-fcb2cfb23b32',
 								name: 'Player 1',
 								password: '87dw9cnqr86437w',
 							},
@@ -297,7 +306,7 @@ test("custom opts can't override built-in fields", () => {
 });
 
 test('ai must reference existing player', () => {
-	const startReq: StartRequest = {
+	const startReq: BattleStartRequest = {
 		...throwStartReqBase,
 		allyTeams: [
 			{
@@ -305,13 +314,14 @@ test('ai must reference existing player', () => {
 					{
 						players: [
 							{
+								userId: '730c874d-e5a3-4c24-a053-fcb2cfb23b32',
 								name: 'Player 1',
 								password: '87dw9cnqr86437w',
 							},
 						],
 						ais: [
 							{
-								hostPlayer: 'Player 2',
+								hostUserId: '7cd7fbda-44c8-4986-afc9-1f5d8b68e59e',
 								shortName: 'BARb',
 							},
 						],

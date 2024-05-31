@@ -5,7 +5,7 @@ import events from 'node:events';
 import { mkdtemp, mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import type { StartRequest } from './types/startRequest.js';
+import type { BattleStartRequest } from './types/battleStartRequest.js';
 import { setImmediate as asyncSetImmediate } from 'timers/promises';
 
 import { runEngine, EngineRunner } from './engineRunner.js';
@@ -21,11 +21,11 @@ console.log('testPort', testPort);
 
 // The contents of this except for the gameUUID doesn't matter much
 // unit tests don't execute the real engine.
-const demoStartRequest: StartRequest = {
-	gameUUID: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+const demoStartRequest: BattleStartRequest = {
+	battleId: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
 	engineVersion: 'test',
 	mapName: 'map v1',
-	modName: 'mod v1',
+	gameName: 'mod v1',
 	startPosType: 'fixed',
 	allyTeams: [{ teams: [] }],
 };

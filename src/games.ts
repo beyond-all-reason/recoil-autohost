@@ -1,4 +1,4 @@
-import type { StartRequest } from './types/startRequest.js';
+import type { BattleStartRequest } from './types/battleStartRequest.js';
 import { runEngine, type EngineRunner } from './engineRunner.js';
 import { EventType } from './autohostInterface.js';
 import events from 'node:events';
@@ -33,14 +33,14 @@ export class GamesManager {
 		throw new Error('no free port offsets');
 	}
 
-	async start(req: StartRequest): Promise<{ ip: string; port: number }> {
-		if (this.usedUUIDs.has(req.gameUUID)) {
-			throw new Error(`game ${req.gameUUID} already used`);
+	async start(req: BattleStartRequest): Promise<{ ip: string; port: number }> {
+		if (this.usedUUIDs.has(req.battleId)) {
+			throw new Error(`game ${req.battleId} already used`);
 		}
 		if (this.games.size >= MAX_GAMES) {
 			throw new Error('too many games running');
 		}
-		this.usedUUIDs.add(req.gameUUID);
+		this.usedUUIDs.add(req.battleId);
 
 		const portOffset = this.findFreePortOffset();
 		const er = runEngine({
@@ -50,7 +50,7 @@ export class GamesManager {
 			autohostPort: AUTOHOST_START_PORT + portOffset,
 		});
 		const game: Game = {
-			gameUUID: req.gameUUID,
+			gameUUID: req.battleId,
 			engineRunner: er,
 			portOffset: portOffset,
 		};

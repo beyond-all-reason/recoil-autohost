@@ -1,5 +1,5 @@
-import { StartRequest, Player, AllyTeam, Team, AI } from './types/startRequest.js';
-import StartRequestSchema from './schemas/startRequest.json' assert { type: 'json' };
+import { BattleStartRequest, Player, AllyTeam, Team, AI } from './types/battleStartRequest.js';
+import StartRequestSchema from './schemas/battleStartRequest.json' assert { type: 'json' };
 import * as tdf from 'recoil-tdf';
 
 function shareKey(a: object, b: object): boolean {
@@ -51,7 +51,7 @@ function buildTeam(
 	}
 	const o: tdf.TDFSerializable = {
 		'AllyTeam': allyTeamIdx,
-		'TeamLeader': playersMap.get(team.players?.[0]?.name ?? team.ais![0].hostPlayer!)!,
+		'TeamLeader': playersMap.get(team.players?.[0]?.userId ?? team.ais![0].hostUserId!)!,
 	};
 	if (team.advantage !== undefined) o['Advantage'] = team.advantage;
 	if (team.incomeMultiplier !== undefined) o['IncomeMultiplier'] = team.incomeMultiplier;
@@ -66,6 +66,7 @@ function buildTeam(
 
 function buildPlayer(teamIdx: number | null, p: Player): tdf.TDFSerializable {
 	const o: tdf.TDFSerializable = {
+		'UserID': p.userId,
 		'Name': p.name,
 		'Password': p.password,
 	};
@@ -80,12 +81,12 @@ function buildPlayer(teamIdx: number | null, p: Player): tdf.TDFSerializable {
 }
 
 function buildAI(teamIdx: number, playersMap: Map<string, number>, ai: AI): tdf.TDFSerializable {
-	if (!playersMap.has(ai.hostPlayer)) {
+	if (!playersMap.has(ai.hostUserId)) {
 		throw new Error('AI hosted by not existing player');
 	}
 	const o: tdf.TDFSerializable = {
 		'ShortName': ai.shortName,
-		'Host': playersMap.get(ai.hostPlayer)!,
+		'Host': playersMap.get(ai.hostUserId)!,
 		'Team': teamIdx,
 	};
 	if (ai.version) o['Version'] = ai.version;
@@ -94,23 +95,23 @@ function buildAI(teamIdx: number, playersMap: Map<string, number>, ai: AI): tdf.
 	return o;
 }
 
-export function scriptGameFromStartRequest(req: StartRequest): {
+export function scriptGameFromStartRequest(req: BattleStartRequest): {
 	[k: string]: tdf.TDFSerializable | string | number | boolean;
 } {
 	const g: tdf.TDFSerializable = {
-		'GameID': req.gameUUID,
-		'GameType': req.modName,
+		'GameID': req.battleId,
+		'GameType': req.gameName,
 		'MapName': req.mapName,
-		'ModHash': req.modHash ?? '1',
-		'MapHash': req.mapHash ?? '1',
+		'ModHash': req.gameArchiveHash ?? '1',
+		'MapHash': req.mapArchiveHash ?? '1',
 		'StartPosType': StartRequestSchema.properties.startPosType.enum.findIndex(
 			(v) => v == req.startPosType,
 		),
-		'MODOPTIONS': req.modOptions ?? {},
+		'MODOPTIONS': req.gameOptions ?? {},
 		'MAPOPTIONS': req.mapOptions ?? {},
 	};
 
-	if (req.gameStartDelay) g['GameStartDelay'] = req.gameStartDelay;
+	if (req.startDelay) g['GameStartDelay'] = req.startDelay;
 
 	if (req.restrictions) {
 		const o: tdf.TDFSerializable = {};
@@ -130,8 +131,11 @@ export function scriptGameFromStartRequest(req: StartRequest): {
 		.flatMap((at) => at.teams)
 		.flatMap((t) => t.players ?? [])
 		.concat(req.spectators ?? []);
-	const playersMap = new Map(players.map((p, idx) => [p.name, idx]));
+	const playersMap = new Map(players.map((p, idx) => [p.userId, idx]));
 	if (players.length != playersMap.size) {
+		throw new Error('Player userIds must be unique');
+	}
+	if (players.length != new Set(players.map((p) => p.name)).size) {
 		throw new Error('Player names must be unique');
 	}
 
