@@ -5,11 +5,9 @@
  * and run json-schema-to-typescript to regenerate this file.
  */
 
-export interface BattleStartResponse {
-	/**
-	 * @minItems 1
-	 */
-	ips: [string | string, ...(string | string)[]];
-	port: number;
-	[k: string]: unknown;
+/**
+ * Request to kill a battle.
+ */
+export interface KillRequest {
+	battleId: string;
 }

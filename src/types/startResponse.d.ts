@@ -5,10 +5,11 @@
  * and run json-schema-to-typescript to regenerate this file.
  */
 
-export interface BattlesSubscribeUpdatesRequest {
+export interface StartResponse {
 	/**
-	 * Unix timestamp in microseconds, it needs to be simply what was received in the last update
+	 * @minItems 1
 	 */
-	since?: number;
+	ips: [string | string, ...(string | string)[]];
+	port: number;
 	[k: string]: unknown;
 }

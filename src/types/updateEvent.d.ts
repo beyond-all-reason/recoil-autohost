@@ -5,49 +5,64 @@
  * and run json-schema-to-typescript to regenerate this file.
  */
 
-export interface BattleUpdateEvent {
+export interface UpdateEvent {
 	battleId: string;
 	/**
 	 * Unix timestamp in microseconds
 	 */
 	time: number;
 	update:
-		| BattleStartUpdate
-		| BattleOverUpdate
-		| BattleServerMessageUpdate
-		| BattleServerWarningUpdate
-		| BattleServerQuitUpdate
-		| BattleServerCrashUpdate
+		| StartUpdate
+		| FinishedUpdate
+		| EngineMessageUpdate
+		| EngineWarningUpdate
+		| EngineQuitUpdate
+		| EngineCrashUpdate
 		| PlayerJoinedUpdate
 		| PlayerLeftUpdate
 		| PlayerChatUpdate
 		| PlayerDefeatedUpdate
 		| LuaMsgUpdate;
 }
-export interface BattleStartUpdate {
-	type: 'battle_start';
+/**
+ * The battle started.
+ */
+export interface StartUpdate {
+	type: 'start';
 }
-export interface BattleOverUpdate {
-	type: 'battle_over';
+/**
+ * The battle finished, generated once per every single player reporting who won.
+ */
+export interface FinishedUpdate {
+	type: 'finished';
 	userId: string;
 	/**
 	 * @minItems 1
 	 */
 	winningAllyTeams: [number, ...number[]];
 }
-export interface BattleServerMessageUpdate {
-	type: 'battle_server_message';
+/**
+ * A message from the engine, e.g. some ip is trying to connect.
+ */
+export interface EngineMessageUpdate {
+	type: 'engine_message';
 	message: string;
 }
-export interface BattleServerWarningUpdate {
-	type: 'battle_server_warning';
+export interface EngineWarningUpdate {
+	type: 'engine_warning';
 	message: string;
 }
-export interface BattleServerQuitUpdate {
-	type: 'battle_server_quit';
+/**
+ * The engine process for battle has quit cleanly, no more updates will be sent for this battle.
+ */
+export interface EngineQuitUpdate {
+	type: 'engine_quit';
 }
-export interface BattleServerCrashUpdate {
-	type: 'battle_server_crash';
+/**
+ * The engine process for battle has crashed, no more updates will be sent for this battle.
+ */
+export interface EngineCrashUpdate {
+	type: 'engine_crash';
 }
 export interface PlayerJoinedUpdate {
 	type: 'player_joined';

@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://beyondallreason.dev/schema/tachyon/autohost/battleUpdate/event",
-  "title": "BattleUpdateEvent",
+  "$id": "https://beyondallreason.dev/schema/tachyon/autohost/update/event",
+  "title": "UpdateEvent",
   "type": "object",
   "properties": {
     "battleId": {
@@ -14,12 +14,12 @@
     },
     "update": {
       "oneOf": [
-        { "$ref": "#/$defs/battleStart" },
-        { "$ref": "#/$defs/battleOver" },
-        { "$ref": "#/$defs/battleServerMessage" },
-        { "$ref": "#/$defs/battleServerWarning" },
-        { "$ref": "#/$defs/battleServerQuit" },
-        { "$ref": "#/$defs/battleServerCrash" },
+        { "$ref": "#/$defs/start" },
+        { "$ref": "#/$defs/finished" },
+        { "$ref": "#/$defs/engineMessage" },
+        { "$ref": "#/$defs/engineWarning" },
+        { "$ref": "#/$defs/engineQuit" },
+        { "$ref": "#/$defs/engineCrash" },
         { "$ref": "#/$defs/playerJoined" },
         { "$ref": "#/$defs/playerLeft" },
         { "$ref": "#/$defs/playerChat" },
@@ -31,23 +31,25 @@
   "required": ["battleId", "time", "update"],
   "additionalProperties": false,
   "$defs": {
-    "battleStart": {
+    "start": {
       "type": "object",
-      "title": "BattleStartUpdate",
+      "title": "StartUpdate",
+      "description": "The battle started.",
       "properties": {
         "type": {
-          "const": "battle_start"
+          "const": "start"
         }
       },
       "required": ["type"],
       "additionalProperties": false
     },
-    "battleOver": {
+    "finished": {
       "type": "object",
-      "title": "BattleOverUpdate",
+      "title": "FinishedUpdate",
+      "description": "The battle finished, generated once per every single player reporting who won.",
       "properties": {
         "type": {
-          "const": "battle_over"
+          "const": "finished"
         },
         "userId": {
           "type": "string"
@@ -64,12 +66,13 @@
       "required": ["type", "userId", "winningAllyTeams"],
       "additionalProperties": false
     },
-    "battleServerMessage": {
+    "engineMessage": {
       "type": "object",
-      "title": "BattleServerMessageUpdate",
+      "title": "EngineMessageUpdate",
+      "description": "A message from the engine, e.g. some ip is trying to connect.",
       "properties": {
         "type": {
-          "const": "battle_server_message"
+          "const": "engine_message"
         },
         "message": {
           "type": "string"
@@ -78,12 +81,12 @@
       "required": ["type", "message"],
       "additionalProperties": false
     },
-    "battleServerWarning": {
+    "engineWarning": {
       "type": "object",
-      "title": "BattleServerWarningUpdate",
+      "title": "EngineWarningUpdate",
       "properties": {
         "type": {
-          "const": "battle_server_warning"
+          "const": "engine_warning"
         },
         "message": {
           "type": "string"
@@ -92,23 +95,25 @@
       "required": ["type", "message"],
       "additionalProperties": false
     },
-    "battleServerQuit": {
+    "engineQuit": {
       "type": "object",
-      "title": "BattleServerQuitUpdate",
+      "title": "EngineQuitUpdate",
+      "description": "The engine process for battle has quit cleanly, no more updates will be sent for this battle.",
       "properties": {
         "type": {
-          "const": "battle_server_quit"
+          "const": "engine_quit"
         }
       },
       "required": ["type"],
       "additionalProperties": false
     },
-    "battleServerCrash": {
+    "engineCrash": {
       "type": "object",
-      "title": "BattleServerCrashUpdate",
+      "title": "EngineCrashUpdate",
+      "description": "The engine process for battle has crashed, no more updates will be sent for this battle.",
       "properties": {
         "type": {
-          "const": "battle_server_crash"
+          "const": "engine_crash"
         }
       },
       "required": ["type"],

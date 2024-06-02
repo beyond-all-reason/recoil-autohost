@@ -5,7 +5,7 @@
  * and run json-schema-to-typescript to regenerate this file.
  */
 
-export interface SendMessageRequest {
+export interface SendCommandRequest {
 	battleId: string;
 	command: string;
 	arguments: string[];

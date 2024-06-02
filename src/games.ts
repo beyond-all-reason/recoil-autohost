@@ -1,4 +1,4 @@
-import type { BattleStartRequest } from './types/battleStartRequest.js';
+import type { StartRequest } from './types/startRequest.js';
 import { runEngine, type EngineRunner } from './engineRunner.js';
 import { EventType } from './autohostInterface.js';
 import events from 'node:events';
@@ -33,7 +33,7 @@ export class GamesManager {
 		throw new Error('no free port offsets');
 	}
 
-	async start(req: BattleStartRequest): Promise<{ ip: string; port: number }> {
+	async start(req: StartRequest): Promise<{ ip: string; port: number }> {
 		if (this.usedUUIDs.has(req.battleId)) {
 			throw new Error(`game ${req.battleId} already used`);
 		}

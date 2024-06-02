@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { BattleStartRequest } from './types/battleStartRequest.js';
+import { StartRequest } from './types/startRequest.js';
 import { scriptGameFromStartRequest } from './startScriptGen.js';
 
 test('simple full example', () => {
-	const startReq: BattleStartRequest = {
+	const startReq: StartRequest = {
 		battleId: 'e4f9f751-3626-48eb-bb8b-1ff8f25e12f9',
 		engineVersion: 'recoil 2024.08.15-gdefse23',
 		gameName: 'Game 22',
@@ -195,7 +195,7 @@ test('simple full example', () => {
 	assert.deepStrictEqual(actual, expected);
 });
 
-const throwStartReqBase: BattleStartRequest = {
+const throwStartReqBase: StartRequest = {
 	battleId: 'e4f9f751-3626-48eb-bb8b-1ff8f25e12f9',
 	engineVersion: 'recoil 2024.08.15-gdefse23',
 	gameName: 'Game 22',
@@ -206,7 +206,7 @@ const throwStartReqBase: BattleStartRequest = {
 
 test('throw on non-unique players', () => {
 	// Players in different teams.
-	const startReq1: BattleStartRequest = {
+	const startReq1: StartRequest = {
 		...throwStartReqBase,
 		allyTeams: [
 			{
@@ -240,7 +240,7 @@ test('throw on non-unique players', () => {
 	assert.throws(() => scriptGameFromStartRequest(startReq1));
 
 	// Also in spectators.
-	const startReq2: BattleStartRequest = {
+	const startReq2: StartRequest = {
 		...throwStartReqBase,
 		allyTeams: [
 			{
@@ -269,7 +269,7 @@ test('throw on non-unique players', () => {
 });
 
 test('at least one ai/player is required', () => {
-	const startReq: BattleStartRequest = {
+	const startReq: StartRequest = {
 		...throwStartReqBase,
 		allyTeams: [
 			{
@@ -281,7 +281,7 @@ test('at least one ai/player is required', () => {
 });
 
 test("custom opts can't override built-in fields", () => {
-	const startReq: BattleStartRequest = {
+	const startReq: StartRequest = {
 		...throwStartReqBase,
 		allyTeams: [
 			{
@@ -306,7 +306,7 @@ test("custom opts can't override built-in fields", () => {
 });
 
 test('ai must reference existing player', () => {
-	const startReq: BattleStartRequest = {
+	const startReq: StartRequest = {
 		...throwStartReqBase,
 		allyTeams: [
 			{

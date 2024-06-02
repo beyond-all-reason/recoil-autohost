@@ -10,7 +10,7 @@
  */
 export type Zero2One = number;
 
-export interface BattleStartRequest {
+export interface StartRequest {
 	battleId: string;
 	engineVersion: string;
 	gameName: string;

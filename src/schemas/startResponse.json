@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://beyondallreason.dev/schema/tachyon/autohost/battleStart/response",
-  "title": "BattleStartResponse",
+  "$id": "https://beyondallreason.dev/schema/tachyon/autohost/start/response",
+  "title": "StartResponse",
   "type": "object",
   "properties": {
     "ips": {

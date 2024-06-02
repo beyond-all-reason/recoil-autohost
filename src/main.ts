@@ -1,7 +1,7 @@
 import Fastify from 'fastify';
 
-import StartRequestSchema from './schemas/battleStartRequest.json' assert { type: 'json' };
-import type { BattleStartRequest } from './types/battleStartRequest.js';
+import StartRequestSchema from './schemas/startRequest.json' assert { type: 'json' };
+import type { StartRequest } from './types/startRequest.js';
 
 import { GamesManager } from './games.js';
 
@@ -11,7 +11,7 @@ const server = Fastify({
 
 const manager = new GamesManager();
 
-server.post<{ Body: BattleStartRequest }>(
+server.post<{ Body: StartRequest }>(
 	'/start',
 	{ schema: { body: StartRequestSchema } },
 	async (req) => {

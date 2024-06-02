@@ -1,5 +1,5 @@
-import { BattleStartRequest, Player, AllyTeam, Team, AI } from './types/battleStartRequest.js';
-import StartRequestSchema from './schemas/battleStartRequest.json' assert { type: 'json' };
+import { StartRequest, Player, AllyTeam, Team, AI } from './types/startRequest.js';
+import StartRequestSchema from './schemas/startRequest.json' assert { type: 'json' };
 import * as tdf from 'recoil-tdf';
 
 function shareKey(a: object, b: object): boolean {
@@ -95,7 +95,7 @@ function buildAI(teamIdx: number, playersMap: Map<string, number>, ai: AI): tdf.
 	return o;
 }
 
-export function scriptGameFromStartRequest(req: BattleStartRequest): {
+export function scriptGameFromStartRequest(req: StartRequest): {
 	[k: string]: tdf.TDFSerializable | string | number | boolean;
 } {
 	const g: tdf.TDFSerializable = {

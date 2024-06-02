@@ -9,7 +9,7 @@ import * as tdf from 'recoil-tdf';
 import { TypedEmitter } from 'tiny-typed-emitter';
 import { parsePacket, type Event, EventType } from './autohostInterface.js';
 import { scriptGameFromStartRequest } from './startScriptGen.js';
-import type { BattleStartRequest } from './types/battleStartRequest.js';
+import type { StartRequest } from './types/startRequest.js';
 
 function serializeEngineSettings(obj: { [k: string]: string }): string {
 	return Object.entries(obj)
@@ -60,7 +60,7 @@ enum State {
  * Options for the engine runner
  */
 interface Opts {
-	startRequest: BattleStartRequest;
+	startRequest: StartRequest;
 	autohostPort: number;
 	hostIP: string;
 	hostPort: number;
@@ -236,7 +236,7 @@ export class EngineRunner extends TypedEmitter<Events> {
 
 	private async startEngine(
 		instanceDir: string,
-		startRequest: BattleStartRequest,
+		startRequest: StartRequest,
 		spawnFunc: typeof spawn,
 	): Promise<void> {
 		const engineDir = path.resolve('engines', startRequest.engineVersion);

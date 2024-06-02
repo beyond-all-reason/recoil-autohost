@@ -5,6 +5,10 @@
  * and run json-schema-to-typescript to regenerate this file.
  */
 
-export interface PlayerAddRequest {
-	battleId: string;
+export interface SubscribeUpdatesRequest {
+	/**
+	 * Unix timestamp in microseconds, it needs to be simply what was received in the last update
+	 */
+	since?: number;
+	[k: string]: unknown;
 }

@@ -1,7 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://beyondallreason.dev/schema/tachyon/autohost/battleKill/request",
-  "title": "PlayerAddRequest",
+  "$id": "https://beyondallreason.dev/schema/tachyon/autohost/kill/request",
+  "title": "KillRequest",
+  "description": "Request to kill a battle.",
   "type": "object",
   "properties": {
     "battleId": {
