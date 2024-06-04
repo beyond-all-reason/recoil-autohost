@@ -6,6 +6,7 @@
     "compile-schemas": "json2ts -i src/schemas -o src/types  --style.useTabs --style.singleQuote --style.printWidth 100",
     "start": "tsc && node --enable-source-maps dist/main.js",
     "build": "tsc",
+    "build:prod": "tsc -p tsconfig.prod.json",
     "test": "tsc && node --enable-source-maps --test",
     "coverage": "tsc && node --enable-source-maps --test --experimental-test-coverage --test-reporter=lcov --test-reporter-destination=lcov.info",
     "lint": "eslint src --ext .ts",
