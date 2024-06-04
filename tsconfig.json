@@ -6,6 +6,7 @@
     "sourceMap": true,
     "module": "NodeNext",
     "outDir": "dist",
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "incremental": true
   }
 }
