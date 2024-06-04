@@ -31,6 +31,7 @@
       "allOf": [
         { "$ref": "#/$defs/base" },
         {
+          "type": "object",
           "properties": {
             "type": {
               "const": "request"
@@ -40,7 +41,7 @@
               "tsType": "unknown"
             }
           },
-          "required": ["type", "data"]
+          "required": ["type"]
         }
       ]
     },
@@ -49,6 +50,7 @@
       "allOf": [
         { "$ref": "#/$defs/base" },
         {
+          "type": "object",
           "properties": {
             "type": {
               "const": "event"
@@ -58,7 +60,7 @@
               "tsType": "unknown"
             }
           },
-          "required": ["type", "data"]
+          "required": ["type"]
         }
       ]
     },
@@ -67,6 +69,7 @@
       "allOf": [
         { "$ref": "#/$defs/base" },
         {
+          "type": "object",
           "properties": {
             "type": {
               "const": "response"
@@ -79,7 +82,7 @@
               "tsType": "unknown"
             }
           },
-          "required": ["type", "status", "data"]
+          "required": ["type", "status"]
         }
       ]
     },
@@ -88,6 +91,7 @@
       "allOf": [
         { "$ref": "#/$defs/base" },
         {
+          "type": "object",
           "properties": {
             "type": {
               "const": "response"
@@ -96,7 +100,16 @@
               "const": "failed"
             },
             "reason": {
-              "enum": ["invalid_request", "not_implemented", "internal_error"]
+              "enum": [
+                "command_unimplemented",
+                "internal_error",
+                "invalid_request",
+                "unknown_command"
+              ]
+            },
+            "details": {
+              "type": "string",
+              "description": "Additional details about the failure for developers"
             }
           },
           "required": ["type", "status", "reason"]

@@ -12,24 +12,28 @@ export type TachyonMessage =
 	| TachyonEvent;
 export type TachyonRequest = TachyonBaseMessage & {
 	type: 'request';
-	data: unknown;
+	data?: unknown;
 	[k: string]: unknown;
 };
 export type TachyonResponseOk = TachyonBaseMessage & {
 	type: 'response';
 	status: 'success';
-	data: unknown;
+	data?: unknown;
 	[k: string]: unknown;
 };
 export type TachyonResponseFail = TachyonBaseMessage & {
 	type: 'response';
 	status: 'failed';
-	reason: 'invalid_request' | 'not_implemented' | 'internal_error';
+	reason: 'command_unimplemented' | 'internal_error' | 'invalid_request' | 'unknown_command';
+	/**
+	 * Additional details about the failure for developers
+	 */
+	details?: string;
 	[k: string]: unknown;
 };
 export type TachyonEvent = TachyonBaseMessage & {
 	type: 'event';
-	data: unknown;
+	data?: unknown;
 	[k: string]: unknown;
 };
 
