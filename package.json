@@ -21,23 +21,23 @@
     "node": ">=18.20"
   },
   "dependencies": {
+    "ajv": "^8.14.0",
+    "ajv-formats": "^3.0.1",
     "fastify": "^4.27.0",
     "recoil-tdf": "^1.0.0",
     "tiny-typed-emitter": "^2.1.0",
     "ws": "^8.17.0"
   },
   "devDependencies": {
-    "@fastify/type-provider-json-schema-to-ts": "^3.0.0",
     "@fastify/basic-auth": "^5.1.1",
     "@fastify/formbody": "^7.4.0",
+    "@fastify/type-provider-json-schema-to-ts": "^3.0.0",
     "@fastify/websocket": "^10.0.1",
     "@tsconfig/node20": "^20.1.4",
     "@types/node": "^20.12.13",
     "@types/ws": "^8.5.10",
     "@typescript-eslint/eslint-plugin": "^7.11.0",
     "@typescript-eslint/parser": "^7.11.0",
-    "ajv": "^8.14.0",
-    "ajv-formats": "^3.0.1",
     "eslint": "8.57.0",
     "eslint-config-prettier": "^9.1.0",
     "json-schema-to-typescript": "^14.0.4",
