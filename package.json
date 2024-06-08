@@ -7,7 +7,7 @@
     "start": "tsc && node --enable-source-maps dist/main.js",
     "build": "tsc",
     "build:prod": "tsc -p tsconfig.prod.json",
-    "test": "tsc && node --enable-source-maps --test",
+    "test": "tsc && node --enable-source-maps --test --test-timeout=2500",
     "coverage": "tsc && node --enable-source-maps --test --experimental-test-coverage --test-reporter=lcov --test-reporter-destination=lcov.info",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
@@ -18,7 +18,7 @@
   "license": "Apache-2.0",
   "type": "module",
   "engines": {
-    "node": ">=18.20"
+    "node": ">=20"
   },
   "dependencies": {
     "ajv": "^8.14.0",
