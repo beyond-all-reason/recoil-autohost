@@ -1,7 +1,7 @@
 {
   "name": "recoil-host",
   "version": "0.0.1",
-  "description": "Simple script to start recoil dedicated instannces.",
+  "description": "Simple script to start recoil dedicated instances.",
   "scripts": {
     "compile-schemas": "json2ts -i src/schemas -o src/types  --style.useTabs --style.singleQuote --style.printWidth 100",
     "start": "tsc && node --enable-source-maps dist/main.js",
@@ -11,13 +11,14 @@
     "coverage": "tsc && node --enable-source-maps --test --experimental-test-coverage --test-reporter=lcov --test-reporter-destination=lcov.info",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "author": "Marek Rusinowski",
   "license": "Apache-2.0",
   "type": "module",
   "engines": {
-    "node": ">=20"
+    "node": ">=18.20"
   },
   "dependencies": {
     "fastify": "^4.27.0",
@@ -40,6 +41,7 @@
     "eslint": "8.57.0",
     "eslint-config-prettier": "^9.1.0",
     "json-schema-to-typescript": "^14.0.4",
+    "lefthook": "^1.6.15",
     "pino-pretty": "^11.1.0",
     "prettier": "3.2.5",
     "typescript": "^5.4.5"
