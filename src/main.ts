@@ -1,6 +1,6 @@
 import Fastify from 'fastify';
 
-import StartRequestSchema from './schemas/startRequest.json' assert { type: 'json' };
+import StartRequestSchema from './schemas/startRequest.json' with { type: 'json' };
 import type { StartRequest } from './types/startRequest.js';
 
 import { GamesManager } from './games.js';

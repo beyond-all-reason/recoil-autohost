@@ -1,5 +1,5 @@
 import { StartRequest, Player, AllyTeam, Team, AI } from './types/startRequest.js';
-import StartRequestSchema from './schemas/startRequest.json' assert { type: 'json' };
+import StartRequestSchema from './schemas/startRequest.json' with { type: 'json' };
 import * as tdf from 'recoil-tdf';
 
 function shareKey(a: object, b: object): boolean {

@@ -11,19 +11,19 @@ import ajvFormatsModule from 'ajv-formats';
 const addFormats = ajvFormatsModule.default;
 
 // Import all the schemas
-import KillRequestSchema from './schemas/killRequest.json' assert { type: 'json' };
-import PlayerAddRequestSchema from './schemas/playerAddRequest.json' assert { type: 'json' };
-import PlayerKickRequestSchema from './schemas/playerKickRequest.json' assert { type: 'json' };
-import PlayerMuteRequestSchema from './schemas/playerMuteRequest.json' assert { type: 'json' };
-import PlayersSpecRequestSchema from './schemas/playersSpecRequest.json' assert { type: 'json' };
-import SendCommandRequestSchema from './schemas/sendCommandRequest.json' assert { type: 'json' };
-import SendMessageRequestSchema from './schemas/sendMessageRequest.json' assert { type: 'json' };
-import StartRequestSchema from './schemas/startRequest.json' assert { type: 'json' };
-import StartResponseSchema from './schemas/startResponse.json' assert { type: 'json' };
-import StatusEventSchema from './schemas/statusEvent.json' assert { type: 'json' };
-import SubscribeUpdatesRequestSchema from './schemas/subscribeUpdatesRequest.json' assert { type: 'json' };
-import TachyonMessageSchema from './schemas/tachyonMessage.json' assert { type: 'json' };
-import UpdateEventSchema from './schemas/updateEvent.json' assert { type: 'json' };
+import KillRequestSchema from './schemas/killRequest.json' with { type: 'json' };
+import PlayerAddRequestSchema from './schemas/playerAddRequest.json' with { type: 'json' };
+import PlayerKickRequestSchema from './schemas/playerKickRequest.json' with { type: 'json' };
+import PlayerMuteRequestSchema from './schemas/playerMuteRequest.json' with { type: 'json' };
+import PlayersSpecRequestSchema from './schemas/playersSpecRequest.json' with { type: 'json' };
+import SendCommandRequestSchema from './schemas/sendCommandRequest.json' with { type: 'json' };
+import SendMessageRequestSchema from './schemas/sendMessageRequest.json' with { type: 'json' };
+import StartRequestSchema from './schemas/startRequest.json' with { type: 'json' };
+import StartResponseSchema from './schemas/startResponse.json' with { type: 'json' };
+import StatusEventSchema from './schemas/statusEvent.json' with { type: 'json' };
+import SubscribeUpdatesRequestSchema from './schemas/subscribeUpdatesRequest.json' with { type: 'json' };
+import TachyonMessageSchema from './schemas/tachyonMessage.json' with { type: 'json' };
+import UpdateEventSchema from './schemas/updateEvent.json' with { type: 'json' };
 
 const schemas = [
 	StartRequestSchema,
