@@ -10,6 +10,8 @@ import { Ajv } from 'ajv';
 import ajvFormatsModule from 'ajv-formats';
 const addFormats = ajvFormatsModule.default;
 
+export const TACHYON_PROTOCOL_VERSION = 'v0.tachyon';
+
 // Import all the schemas
 import KillRequestSchema from './schemas/killRequest.json' with { type: 'json' };
 import PlayerAddRequestSchema from './schemas/playerAddRequest.json' with { type: 'json' };

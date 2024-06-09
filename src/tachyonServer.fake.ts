@@ -25,11 +25,14 @@ import FastifyFormBody from '@fastify/formbody';
 import FastifyBasicAuth from '@fastify/basic-auth';
 import FastifyWebSocket from '@fastify/websocket';
 import { JsonSchemaToTsProvider } from '@fastify/type-provider-json-schema-to-ts';
-import { parseTachyonMessage, TachyonMessage, TachyonRequest } from './tachyonTypes.js';
+import {
+	parseTachyonMessage,
+	TachyonMessage,
+	TachyonRequest,
+	TACHYON_PROTOCOL_VERSION,
+} from './tachyonTypes.js';
 import { TypedEmitter } from 'tiny-typed-emitter';
 import { WebSocket } from 'ws';
-
-const TACHYON_V0_PROTOCOL = 'v0.tachyon';
 
 class Oauth2Error extends Error {
 	error: string;
@@ -85,19 +88,60 @@ export class TachyonServer<F extends Fastify.FastifyInstance> extends TypedEmitt
 	connection: (conn: TachyonClientConnection) => void;
 }> {
 	constructor(
-		public port: number,
+		private askedPort: number,
 		public fastifyServer: F,
 	) {
 		super();
 	}
 
+	get port(): number {
+		if (this.fastifyServer.addresses().length !== 1) {
+			throw new Error('Server is not listening');
+		}
+		return this.fastifyServer.addresses()[0].port;
+	}
+
 	start() {
-		return this.fastifyServer.listen({ port: this.port });
+		return this.fastifyServer.listen({ port: this.askedPort });
+	}
+
+	close() {
+		return this.fastifyServer.close();
 	}
 }
 
-export async function createTachyonServer(port: number) {
-	const server = Fastify({ logger: true }).withTypeProvider<JsonSchemaToTsProvider>();
+interface TachyonServerOpts {
+	/**
+	 * The port to listen on, defaults to 0 (random port).
+	 */
+	port?: number;
+
+	/**
+	 * Whether to enable the Fastify logger, defaults to false.
+	 */
+	logger?: boolean;
+
+	/**
+	 * The OAuth2 client ID, defaults to 'autohost1'.
+	 */
+	clientId?: string;
+
+	/**
+	 * The OAuth2 client secret, defaults to 'pass1'.
+	 */
+	clientSecret?: string;
+}
+
+export async function createTachyonServer(options?: TachyonServerOpts) {
+	const opts = {
+		port: 0,
+		logger: false,
+		clientId: 'autohost1',
+		clientSecret: 'pass1',
+		...options,
+	};
+
+	const server = Fastify({ logger: opts.logger }).withTypeProvider<JsonSchemaToTsProvider>();
 
 	// OAuth2 stuff. It supports only client_credentials grant type
 	// with a single hardcoded client. Example call to get a token:
@@ -109,7 +153,7 @@ export async function createTachyonServer(port: number) {
 	await server.register(FastifyFormBody);
 	await server.register(FastifyBasicAuth, {
 		validate: async (username, password, _req, reply) => {
-			if (username !== 'autohost1' || password !== 'pass1') {
+			if (username !== opts.clientId || password !== opts.clientSecret) {
 				reply.status(401);
 				reply.header('www-authenticate', 'Basic realm="tachyon_oauth2"');
 				return new Oauth2Error('invalid_client');
@@ -127,6 +171,7 @@ export async function createTachyonServer(port: number) {
 	});
 
 	server.get('/.well-known/oauth-authorization-server', async (_req, resp) => {
+		const port = server.addresses()[0].port;
 		resp.header('cache-control', 'max-age=3600, public');
 		return {
 			issuer: `http://localhost:${port}`,
@@ -175,15 +220,15 @@ export async function createTachyonServer(port: number) {
 	await server.register(FastifyWebSocket, {
 		options: {
 			handleProtocols: (protocols) => {
-				if (protocols.has(TACHYON_V0_PROTOCOL)) {
-					return TACHYON_V0_PROTOCOL;
+				if (protocols.has(TACHYON_PROTOCOL_VERSION)) {
+					return TACHYON_PROTOCOL_VERSION;
 				}
 				return false;
 			},
 		},
 	});
 
-	const tachyonServer = new TachyonServer(port, server);
+	const tachyonServer = new TachyonServer(opts.port, server);
 
 	server.get(
 		'/tachyon',
@@ -220,7 +265,10 @@ export async function createTachyonServer(port: number) {
 
 // Start the server and add some helpers if this file is run directly on CLI.
 if (import.meta.filename == process.argv[1]) {
-	const srv = await createTachyonServer(8084);
+	const srv = await createTachyonServer({
+		port: 8084,
+		logger: true,
+	});
 
 	const connections = new Map<number, TachyonClientConnection>();
 	let connIdx = 0;
