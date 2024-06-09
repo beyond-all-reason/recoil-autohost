@@ -2,12 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
 	createTachyonEvent,
+	precompileSchemas,
 	parseTachyonMessage,
 	callTachyonAutohost,
 	TachyonRequest,
 	KillRequest,
 	TachyonAutohost,
 } from './tachyonTypes.js';
+
+// Let's force all schemas to be compiled to catch errors early
+precompileSchemas();
 
 test('parsing correct tachyon message succeeds', () => {
 	const message = {

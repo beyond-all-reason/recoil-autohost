@@ -43,9 +43,17 @@ const schemas = [
 const ajv = new Ajv({ schemas, strict: true });
 ajv.addVocabulary(['tsType']);
 addFormats(ajv);
-// Let's force all schemas to be compiled to catch errors early
-for (const schema of schemas) {
-	ajv.getSchema(schema.$id);
+
+/**
+ * Precompiles all the schemas so they are ready to be used for validation.
+ *
+ * It's refactored into a function so it can be called explicitly and not just when the module is
+ * imported even in unrelated unit tests.
+ */
+export function precompileSchemas() {
+	for (const schema of schemas) {
+		ajv.getSchema(schema.$id);
+	}
 }
 
 // Now let's import all the generated types
