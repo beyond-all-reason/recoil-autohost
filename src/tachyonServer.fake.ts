@@ -161,7 +161,7 @@ export async function createTachyonServer(port: number) {
 		validAccessTokens.add(accessToken);
 		setTimeout(() => {
 			validAccessTokens.delete(accessToken);
-		}, timeoutSeconds * 1000);
+		}, timeoutSeconds * 1000).unref();
 
 		resp.header('cache-control', 'no-store');
 		return {
