@@ -11,8 +11,8 @@
     "coverage": "tsc && node --enable-source-maps --test --experimental-test-coverage --test-reporter=lcov --test-reporter-destination=lcov.info",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
-    "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format": "prettier --write --cache .",
+    "format:check": "prettier --check --cache ."
   },
   "author": "Marek Rusinowski",
   "license": "Apache-2.0",
