@@ -8,6 +8,7 @@
     "build": "tsc",
     "build:prod": "tsc -p tsconfig.prod.json",
     "test": "tsc && node --enable-source-maps --test --test-timeout=2500",
+    "test:clean": "rm -rf dist/ && npm run test",
     "coverage": "tsc && node --enable-source-maps --test --experimental-test-coverage --test-reporter=lcov --test-reporter-destination=lcov.info",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
