@@ -22,11 +22,11 @@
     "node": ">=20"
   },
   "dependencies": {
-    "ajv": "^8.14.0",
+    "ajv": "^8.16.0",
     "ajv-formats": "^3.0.1",
     "recoil-tdf": "^1.0.0",
     "tiny-typed-emitter": "^2.1.0",
-    "ws": "^8.17.0"
+    "ws": "^8.17.1"
   },
   "devDependencies": {
     "@fastify/basic-auth": "^5.1.1",
@@ -34,16 +34,16 @@
     "@fastify/type-provider-json-schema-to-ts": "^3.0.0",
     "@fastify/websocket": "^10.0.1",
     "@tsconfig/node20": "^20.1.4",
-    "@types/node": "^20.12.13",
+    "@types/node": "^20.14.6",
     "@types/ws": "^8.5.10",
     "@typescript-eslint/eslint-plugin": "^7.11.0",
     "@typescript-eslint/parser": "^7.11.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint": "8.57.0",
-    "fastify": "^4.27.0",
-    "json-schema-to-typescript": "^14.0.4",
-    "pino-pretty": "^11.1.0",
-    "prettier": "3.2.5",
+    "fastify": "^4.28.0",
+    "json-schema-to-typescript": "^14.0.5",
+    "pino-pretty": "^11.2.1",
+    "prettier": "3.3.2",
     "typescript": "^5.4.5"
   },
   "optionalDependencies": {
