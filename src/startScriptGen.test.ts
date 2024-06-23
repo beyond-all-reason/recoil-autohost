@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { StartRequest } from './types/startRequest.js';
+import { AutohostStartRequestData } from 'tachyon-protocol/types';
 import { scriptGameFromStartRequest } from './startScriptGen.js';
 
 test('simple full example', () => {
-	const startReq: StartRequest = {
+	const startReq: AutohostStartRequestData = {
 		battleId: 'e4f9f751-3626-48eb-bb8b-1ff8f25e12f9',
 		engineVersion: 'recoil 2024.08.15-gdefse23',
 		gameName: 'Game 22',
@@ -27,18 +27,18 @@ test('simple full example', () => {
 								countryCode: 'NA',
 							},
 						],
-						side: 'ARM',
+						faction: 'ARM',
 						color: {
 							r: 1,
 							g: 0,
 							b: 0.5,
 						},
-						customOpts: {
+						customProperties: {
 							'specialModOption': 'asd',
 						},
 					},
 				],
-				startbox: {
+				startBox: {
 					top: 0,
 					left: 0,
 					bottom: 0,
@@ -48,27 +48,30 @@ test('simple full example', () => {
 			{
 				teams: [
 					{
-						side: 'CORE',
+						faction: 'CORE',
 						advantage: 0.5,
 						incomeMultiplier: 1.2,
 						startPos: {
 							x: 100,
-							z: 100,
+							y: 100,
 						},
-						ais: [
+						bots: [
 							{
 								hostUserId: '730c874d-e5a3-4c24-a053-fcb2cfb23b32',
-								shortName: 'BARb',
-								version: '3.2',
+								aiShortName: 'BARb',
+								aiVersion: '3.2',
 								name: 'AI 1',
-								options: {
+								aiOptions: {
 									'difficulty': 'op',
+								},
+								customProperties: {
+									'x': 'y',
 								},
 							},
 						],
 					},
 				],
-				startbox: {
+				startBox: {
 					top: 0,
 					left: 0.8,
 					bottom: 0,
@@ -77,7 +80,18 @@ test('simple full example', () => {
 			},
 			{
 				allies: [0],
-				teams: [],
+				teams: [
+					{
+						players: [
+							{
+								userId: '441a8dde-4a7a-4baf-9a3f-f51015fa61c4',
+								name: 'Player X',
+								password: 'X',
+								countryCode: 'DE',
+							},
+						],
+					},
+				],
 			},
 		],
 		spectators: [
@@ -87,7 +101,7 @@ test('simple full example', () => {
 				password: 'asd',
 				countryCode: 'PL',
 				rank: 1,
-				customOpts: {
+				customProperties: {
 					'key': 'value',
 				},
 			},
@@ -171,12 +185,24 @@ test('simple full example', () => {
 			'OPTIONS': {
 				'difficulty': 'op',
 			},
+			'x': 'y',
 		},
 		'ALLYTEAM2': {
 			'NumAllies': 1,
 			'Ally0': 0,
 		},
+		'TEAM2': {
+			'AllyTeam': 2,
+			'TeamLeader': 1,
+		},
 		'PLAYER1': {
+			'Name': 'Player X',
+			'UserID': '441a8dde-4a7a-4baf-9a3f-f51015fa61c4',
+			'Password': 'X',
+			'Team': 2,
+			'CountryCode': 'DE',
+		},
+		'PLAYER2': {
 			'Name': 'Player 2',
 			'UserID': '7cd7fbda-44c8-4986-afc9-1f5d8b68e59e',
 			'Password': 'asd',
@@ -186,8 +212,8 @@ test('simple full example', () => {
 			'key': 'value',
 		},
 		'NumAllyTeams': 3,
-		'NumTeams': 2,
-		'NumPlayers': 2,
+		'NumTeams': 3,
+		'NumPlayers': 3,
 	};
 
 	const actual = scriptGameFromStartRequest(startReq);
@@ -195,18 +221,33 @@ test('simple full example', () => {
 	assert.deepStrictEqual(actual, expected);
 });
 
-const throwStartReqBase: StartRequest = {
+const throwStartReqBase: AutohostStartRequestData = {
 	battleId: 'e4f9f751-3626-48eb-bb8b-1ff8f25e12f9',
 	engineVersion: 'recoil 2024.08.15-gdefse23',
 	gameName: 'Game 22',
 	mapName: 'de_duck 1.2',
 	startPosType: 'ingame',
-	allyTeams: [{ teams: [] }],
+	allyTeams: [
+		{
+			teams: [
+				{
+					players: [
+						{
+							userId: '441a8dde-4a7a-4baf-9a3f-f51015fa61c4',
+							name: 'Player X',
+							password: 'X',
+							countryCode: 'DE',
+						},
+					],
+				},
+			],
+		},
+	],
 };
 
 test('throw on non-unique players', () => {
 	// Players in different teams.
-	const startReq1: StartRequest = {
+	const startReq1: AutohostStartRequestData = {
 		...throwStartReqBase,
 		allyTeams: [
 			{
@@ -240,7 +281,7 @@ test('throw on non-unique players', () => {
 	assert.throws(() => scriptGameFromStartRequest(startReq1));
 
 	// Also in spectators.
-	const startReq2: StartRequest = {
+	const startReq2: AutohostStartRequestData = {
 		...throwStartReqBase,
 		allyTeams: [
 			{
@@ -269,7 +310,7 @@ test('throw on non-unique players', () => {
 });
 
 test('at least one ai/player is required', () => {
-	const startReq: StartRequest = {
+	const startReq: AutohostStartRequestData = {
 		...throwStartReqBase,
 		allyTeams: [
 			{
@@ -281,7 +322,7 @@ test('at least one ai/player is required', () => {
 });
 
 test("custom opts can't override built-in fields", () => {
-	const startReq: StartRequest = {
+	const startReq: AutohostStartRequestData = {
 		...throwStartReqBase,
 		allyTeams: [
 			{
@@ -294,7 +335,7 @@ test("custom opts can't override built-in fields", () => {
 								password: '87dw9cnqr86437w',
 							},
 						],
-						customOpts: {
+						customProperties: {
 							'AllyTeam': '1',
 						},
 					},
@@ -306,7 +347,7 @@ test("custom opts can't override built-in fields", () => {
 });
 
 test('ai must reference existing player', () => {
-	const startReq: StartRequest = {
+	const startReq: AutohostStartRequestData = {
 		...throwStartReqBase,
 		allyTeams: [
 			{
@@ -319,10 +360,10 @@ test('ai must reference existing player', () => {
 								password: '87dw9cnqr86437w',
 							},
 						],
-						ais: [
+						bots: [
 							{
 								hostUserId: '7cd7fbda-44c8-4986-afc9-1f5d8b68e59e',
-								shortName: 'BARb',
+								aiShortName: 'BARb',
 							},
 						],
 					},

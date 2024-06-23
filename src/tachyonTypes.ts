@@ -5,100 +5,64 @@
  * schemas and the actual implementation of the Tachyon protocol. Most of this code could be
  * automatically generated, but it's small enough that it's not worth the effort at the moment.
  */
+import { type TachyonMeta, tachyonMeta } from 'tachyon-protocol';
+import { validator } from 'tachyon-protocol/validators';
 import { randomUUID } from 'node:crypto';
-import { Ajv } from 'ajv';
-import ajvFormatsModule from 'ajv-formats';
-const addFormats = ajvFormatsModule.default;
+import { Ajv, type JSONSchemaType } from 'ajv';
+import type {
+	AutohostAddPlayerRequestData,
+	AutohostKickPlayerRequestData,
+	AutohostKillRequestData,
+	AutohostMutePlayerRequestData,
+	AutohostSendCommandRequestData,
+	AutohostSendMessageRequestData,
+	AutohostSpecPlayersRequestData,
+	AutohostStartOkResponseData,
+	AutohostStartRequestData,
+	AutohostStatusEventData,
+	AutohostSubscribeUpdatesRequestData,
+	AutohostUpdateEventData,
+	TachyonCommand,
+} from 'tachyon-protocol/types';
 
 export const TACHYON_PROTOCOL_VERSION = 'v0.tachyon';
 
-// Import all the schemas
-import KillRequestSchema from './schemas/killRequest.json' with { type: 'json' };
-import PlayerAddRequestSchema from './schemas/playerAddRequest.json' with { type: 'json' };
-import PlayerKickRequestSchema from './schemas/playerKickRequest.json' with { type: 'json' };
-import PlayerMuteRequestSchema from './schemas/playerMuteRequest.json' with { type: 'json' };
-import PlayersSpecRequestSchema from './schemas/playersSpecRequest.json' with { type: 'json' };
-import SendCommandRequestSchema from './schemas/sendCommandRequest.json' with { type: 'json' };
-import SendMessageRequestSchema from './schemas/sendMessageRequest.json' with { type: 'json' };
-import StartRequestSchema from './schemas/startRequest.json' with { type: 'json' };
-import StartResponseSchema from './schemas/startResponse.json' with { type: 'json' };
-import StatusEventSchema from './schemas/statusEvent.json' with { type: 'json' };
-import SubscribeUpdatesRequestSchema from './schemas/subscribeUpdatesRequest.json' with { type: 'json' };
-import TachyonMessageSchema from './schemas/tachyonMessage.json' with { type: 'json' };
-import UpdateEventSchema from './schemas/updateEvent.json' with { type: 'json' };
-
-const schemas = [
-	StartRequestSchema,
-	KillRequestSchema,
-	PlayerAddRequestSchema,
-	PlayerKickRequestSchema,
-	PlayerMuteRequestSchema,
-	PlayersSpecRequestSchema,
-	SendCommandRequestSchema,
-	SendMessageRequestSchema,
-	StartResponseSchema,
-	StatusEventSchema,
-	SubscribeUpdatesRequestSchema,
-	TachyonMessageSchema,
-	UpdateEventSchema,
-];
-const ajv = new Ajv({ schemas, strict: true });
-ajv.addVocabulary(['tsType']);
-addFormats(ajv);
-
-/**
- * Precompiles all the schemas so they are ready to be used for validation.
- *
- * It's refactored into a function so it can be called explicitly and not just when the module is
- * imported even in unrelated unit tests.
- */
-export function precompileSchemas() {
-	for (const schema of schemas) {
-		ajv.getSchema(schema.$id);
-	}
+// Top level message schema for Tachyon messages as they appear in the WebSocket.
+export interface TachyonMessage {
+	type: 'request' | 'response' | 'event';
+	messageId: string;
+	commandId: string;
 }
 
-// Now let's import all the generated types
-import type { KillRequest } from './types/killRequest.js';
-import type { PlayerAddRequest } from './types/playerAddRequest.js';
-import type { PlayerKickRequest } from './types/playerKickRequest.js';
-import type { PlayerMuteRequest } from './types/playerMuteRequest.js';
-import type { PlayersSpecRequest } from './types/playersSpecRequest.js';
-import type { SendCommandRequest } from './types/sendCommandRequest.js';
-import type { SendMessageRequest } from './types/sendMessageRequest.js';
-import type { StartRequest } from './types/startRequest.js';
-import type { StartResponse } from './types/startResponse.js';
-import type { StatusEvent } from './types/statusEvent.js';
-import type { SubscribeUpdatesRequest } from './types/subscribeUpdatesRequest.js';
-import type { UpdateEvent } from './types/updateEvent.js';
-import type {
-	TachyonEvent,
-	TachyonMessage,
-	TachyonRequest,
-	TachyonResponseFail,
-	TachyonResponseOk,
-} from './types/tachyonMessage.js';
-
-// Export all the message types for convenience
-export {
-	KillRequest,
-	PlayerAddRequest,
-	PlayerKickRequest,
-	PlayerMuteRequest,
-	PlayersSpecRequest,
-	SendCommandRequest,
-	SendMessageRequest,
-	StartRequest,
-	StartResponse,
-	StatusEvent,
-	SubscribeUpdatesRequest,
-	UpdateEvent,
-	TachyonEvent,
-	TachyonMessage,
-	TachyonRequest,
-	TachyonResponseFail,
-	TachyonResponseOk,
+const TachyonMessageSchema: JSONSchemaType<TachyonMessage> = {
+	type: 'object',
+	properties: {
+		type: { type: 'string', enum: ['request', 'response', 'event'] },
+		messageId: { type: 'string' },
+		commandId: { type: 'string' },
+	},
+	required: ['messageId', 'commandId', 'type'],
+	additionalProperties: true,
 };
+
+const ajv = new Ajv({ strict: true });
+const validateTachyonMessage = ajv.compile(TachyonMessageSchema);
+
+/**
+ * Parses a Tachyon message from a string.
+ *
+ * It won't validate the command nor command data, and only the top level tachyon message
+ * structure.
+ */
+export function parseTachyonMessage(message: string): TachyonMessage {
+	const parsed = JSON.parse(message);
+	if (!validateTachyonMessage(parsed)) {
+		throw new Error(
+			`Failed to validate the root request: ${ajv.errorsText(validateTachyonMessage.errors)}`,
+		);
+	}
+	return parsed;
+}
 
 /**
  * A custom error class to represent errors that can be returned by the Tachyon protocol.
@@ -106,9 +70,9 @@ export {
  * To be used primarily by the autohost interface implementation. All generic errors
  * otherwise will be caught and transformed into a generic internal error.
  */
-export class TachyonError extends Error {
+export class TachyonError<T extends string & keyof TachyonMeta['failedReasons']> extends Error {
 	constructor(
-		public readonly reason: TachyonResponseFail['reason'],
+		public readonly reason: TachyonMeta['failedReasons'][T][number],
 		public readonly details: string,
 	) {
 		super(`failed with reason ${reason}: ${details}`);
@@ -121,15 +85,15 @@ export class TachyonError extends Error {
  * for the autohost protocol commands.
  */
 export interface TachyonAutohost {
-	start(request: StartRequest): Promise<StartResponse>;
-	kill(request: KillRequest): Promise<void>;
-	playerAdd(request: PlayerAddRequest): Promise<void>;
-	playerKick(request: PlayerKickRequest): Promise<void>;
-	playerMute(request: PlayerMuteRequest): Promise<void>;
-	playersSpec(request: PlayersSpecRequest): Promise<void>;
-	sendCommand(request: SendCommandRequest): Promise<void>;
-	sendMessage(request: SendMessageRequest): Promise<void>;
-	subscribeUpdates(request: SubscribeUpdatesRequest): Promise<void>;
+	start(request: AutohostStartRequestData): Promise<AutohostStartOkResponseData>;
+	kill(request: AutohostKillRequestData): Promise<void>;
+	addPlayer(request: AutohostAddPlayerRequestData): Promise<void>;
+	kickPlayer(request: AutohostKickPlayerRequestData): Promise<void>;
+	mutePlayer(request: AutohostMutePlayerRequestData): Promise<void>;
+	specPlayers(request: AutohostSpecPlayersRequestData): Promise<void>;
+	sendCommand(request: AutohostSendCommandRequestData): Promise<void>;
+	sendMessage(request: AutohostSendMessageRequestData): Promise<void>;
+	subscribeUpdates(request: AutohostSubscribeUpdatesRequestData): Promise<void>;
 	connected(server: TachyonServer): void;
 	disconnected(): void;
 }
@@ -138,43 +102,18 @@ export interface TachyonAutohost {
  * The interface that represents the functionality that the autohost can call on the server.
  */
 export interface TachyonServer {
-	status(event: StatusEvent): void;
-	update(event: UpdateEvent): void;
+	status(event: AutohostStatusEventData): void;
+	update(event: AutohostUpdateEventData): void;
 }
 
-function dispatchTachyonAutohostCall(
-	req: TachyonRequest,
-	autohost: TachyonAutohost,
-): Promise<StartResponse | void> {
-	//
-	// !!! WARNING !!!
-	//
-	// This switch is the most dangerous one in this file, because we do literal resolution of the
-	// commandId to type. So if we make typo or cast to wrong type static analysis won't catch it.
-	switch (req.commandId) {
-		case 'autohost/start':
-			return autohost.start(req.data as StartRequest);
-		case 'autohost/kill':
-			return autohost.kill(req.data as KillRequest);
-		case 'autohost/playerAdd':
-			return autohost.playerAdd(req.data as PlayerAddRequest);
-		case 'autohost/playerKick':
-			return autohost.playerKick(req.data as PlayerKickRequest);
-		case 'autohost/playerMute':
-			return autohost.playerMute(req.data as PlayerMuteRequest);
-		case 'autohost/playersSpec':
-			return autohost.playersSpec(req.data as PlayersSpecRequest);
-		case 'autohost/sendCommand':
-			return autohost.sendCommand(req.data as SendCommandRequest);
-		case 'autohost/sendMessage':
-			return autohost.sendMessage(req.data as SendMessageRequest);
-		case 'autohost/subscribeUpdates':
-			return autohost.subscribeUpdates(req.data as SubscribeUpdatesRequest);
-		default:
-			throw new Error(
-				`Unknown command ${req.commandId}, that should never happen, it should have been caught by the validator`,
-			);
-	}
+// Helper that works as a type guard to check if an element is included in an array.
+function includes<T extends U, U>(coll: ReadonlyArray<T>, el: U): el is T {
+	return coll.includes(el as T);
+}
+
+// Helper to assert that a switch statement is exhaustive.
+function assertUnreachable(_x: never): never {
+	throw new Error('Unreachable autohost command reached!');
 }
 
 /**
@@ -184,85 +123,129 @@ function dispatchTachyonAutohostCall(
  * a proper Tachyon response object ready to be serialized.
  */
 export async function callTachyonAutohost(
-	req: TachyonRequest,
+	req: TachyonMessage,
 	autohost: TachyonAutohost,
-): Promise<TachyonResponseOk | TachyonResponseFail> {
-	try {
-		const validator = ajv.getSchema(
-			`https://beyondallreason.dev/schema/tachyon/${req.commandId}/request`,
+): Promise<Extract<TachyonCommand, { type: 'response' }>> {
+	if (req.type !== 'request') {
+		throw new Error('Only requests are allowed');
+	}
+	if (!includes(tachyonMeta.schema.actors.autohost.request.receive, req.commandId)) {
+		return createTachyonResponseFail(
+			req,
+			'command_unimplemented',
+			`${req.commandId} of type request not recognized by autohost`,
 		);
-		if (!validator) {
-			throw new TachyonError(
-				'unknown_command',
-				`${req.commandId} of type request not recognized by autohost`,
-			);
-		}
-		const valid = validator(req.data);
+	}
+	try {
+		const reqValidator = validator[req.commandId]['request'];
+		const valid = reqValidator(req);
 		if (!valid) {
 			throw new TachyonError(
 				'invalid_request',
-				`Failed to validate command ${req.commandId} data: ${ajv.errorsText(validator.errors)}`,
+				`Failed to validate command ${req.commandId} data: ${ajv.errorsText(reqValidator.errors)}`,
 			);
 		}
-		const respData = await dispatchTachyonAutohostCall(req, autohost);
-		return {
-			type: 'response',
-			status: 'success',
-			messageId: req.messageId,
-			commandId: req.commandId,
-			data: respData,
-		};
-	} catch (error) {
-		const tachyonErr: TachyonResponseFail = {
-			type: 'response',
-			status: 'failed',
-			messageId: req.messageId,
-			commandId: req.commandId,
-			reason: 'internal_error',
-		};
-		if (error instanceof TachyonError) {
-			tachyonErr.reason = error.reason;
-			tachyonErr.details = error.details;
+		switch (req.commandId) {
+			case 'autohost/start':
+				return createTachyonResponseOk(req, await autohost.start(req.data));
+			case 'autohost/kill':
+				return createTachyonResponseOk(req, await autohost.kill(req.data));
+			case 'autohost/addPlayer':
+				return createTachyonResponseOk(req, await autohost.addPlayer(req.data));
+			case 'autohost/kickPlayer':
+				return createTachyonResponseOk(req, await autohost.kickPlayer(req.data));
+			case 'autohost/mutePlayer':
+				return createTachyonResponseOk(req, await autohost.mutePlayer(req.data));
+			case 'autohost/specPlayers':
+				return createTachyonResponseOk(req, await autohost.specPlayers(req.data));
+			case 'autohost/sendCommand':
+				return createTachyonResponseOk(req, await autohost.sendCommand(req.data));
+			case 'autohost/sendMessage':
+				return createTachyonResponseOk(req, await autohost.sendMessage(req.data));
+			case 'autohost/subscribeUpdates':
+				return createTachyonResponseOk(req, await autohost.subscribeUpdates(req.data));
+			default:
+				assertUnreachable(req);
 		}
-		return tachyonErr;
+	} catch (error) {
+		const failedReasons = tachyonMeta.schema.failedReasons;
+		if (error instanceof TachyonError) {
+			if (
+				req.commandId in failedReasons &&
+				includes(failedReasons[req.commandId as keyof typeof failedReasons], error.reason)
+			) {
+				return createTachyonResponseFail(req, error.reason, error.details);
+			}
+			console.error(
+				`Invalid TachyonError reason: ${error.reason} for command ${req.commandId}. Details: ${error.details}`,
+			);
+		} else {
+			console.error(`Error processing command ${req.commandId}: ${error}`);
+		}
+		return createTachyonResponseFail(req, 'internal_error');
 	}
 }
+
+type AutohostEvent = Extract<
+	TachyonCommand,
+	{ type: 'event'; commandId: TachyonMeta['actors']['autohost']['event']['send'][number] }
+>;
 
 /**
- * Parses a Tachyon message from a string.
- *
- * It won't validate the command nor command data, and only the top level tachyon message
- * structure.
+ * Creates a event message given the event type and the event data.
  */
-export function parseTachyonMessage(message: string): TachyonMessage {
-	const parsed = JSON.parse(message);
-	const valid = ajv.getSchema('https://beyondallreason.dev/schema/tachyon/message');
-	if (!valid) {
-		throw new Error('Failed to find the root request schema, this should never happen');
-	}
-	if (!valid(parsed)) {
-		throw new Error(`Failed to validate the root request: ${ajv.errorsText(valid.errors)}`);
-	}
-	return parsed as TachyonMessage;
-}
-
-// Another, last one, dangerous mapping that can't be statically checked.
-interface _EventTypeHelper {
-	'autohost/status': StatusEvent;
-	'autohost/update': UpdateEvent;
-}
-
-/**
- * Creates a proper tachyon message given the event type and the event data.
- */
-export function createTachyonEvent<S extends string & keyof _EventTypeHelper>(
-	status: S,
-	event: _EventTypeHelper[S],
-): TachyonEvent {
+export function createTachyonEvent<
+	CommandId extends AutohostEvent['commandId'],
+	Event extends Extract<AutohostEvent, { commandId: CommandId }>,
+>(status: CommandId, event: Event['data']): Event {
 	return {
 		type: 'event',
 		messageId: randomUUID(),
 		commandId: status,
 		data: event,
-	};
+	} as Event;
+}
+
+/**
+ * Creates a successful response object given the request object and the data
+ * for the response matching the request.
+ */
+export function createTachyonResponseOk<
+	Req extends Extract<TachyonCommand, { type: 'request' }>,
+	Res extends Extract<
+		TachyonCommand,
+		{ type: 'response'; status: 'success'; commandId: Req['commandId'] }
+	>,
+>(req: Req, data: Res extends { data: unknown } ? Res['data'] : void): Res {
+	return {
+		type: 'response',
+		status: 'success',
+		commandId: req.commandId,
+		messageId: req.messageId,
+		data,
+	} as Res;
+}
+
+/**
+ * Creates a failed response object given the request object and reason for the failure.
+ *
+ * If the commandId is constant, then it's fully typed, otherwise any response
+ * that is a valid reason for any of the commands will be accepted.
+ */
+export function createTachyonResponseFail<
+	CommandId,
+	Req extends { commandId: CommandId; messageId: string },
+	Res extends Extract<
+		TachyonCommand,
+		{ type: 'response'; commandId: Req['commandId']; status: 'failed' }
+	>,
+>(req: Req, reason: Res['reason'], details?: string): Res {
+	return {
+		type: 'response',
+		status: 'failed',
+		commandId: req.commandId,
+		messageId: req.messageId,
+		reason,
+		details,
+	} as Res;
 }

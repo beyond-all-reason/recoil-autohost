@@ -5,7 +5,7 @@ import { once } from 'node:events';
 import { TachyonClient } from './tachyonClient.js';
 import { createTachyonServer } from './tachyonServer.fake.js';
 import { deepEqual } from 'node:assert';
-import { TachyonMessage, TachyonResponseOk } from './tachyonTypes.js';
+import { TachyonMessage } from './tachyonTypes.js';
 
 // Let's reuse the same server for all tests to make them quicker.
 const server = await createTachyonServer({ clientId: 'c', clientSecret: 's' });
@@ -25,8 +25,11 @@ test('simple full example', async () => {
 	server.on('connection', (conn) => {
 		conn.on('message', (msg) => {
 			equal(msg.type, 'request');
-			equal(msg.commandId, 'test/command');
-			deepEqual(msg.data, { test: 'test' });
+			equal(msg.commandId, 'autohost/sendMessage');
+			deepEqual((msg as unknown as { data: string }).data, {
+				battleId: 'id',
+				message: 'msg',
+			});
 			conn.send({
 				type: 'response',
 				commandId: msg.commandId,
@@ -40,14 +43,14 @@ test('simple full example', async () => {
 	await once(client, 'connected');
 	client.send({
 		type: 'request',
-		commandId: 'test/command',
+		commandId: 'autohost/sendMessage',
 		messageId: 'test-message1',
-		data: { test: 'test' },
+		data: { battleId: 'id', message: 'msg' },
 	});
 	const msg = (await once(client, 'message')) as [TachyonMessage];
 	deepEqual(msg[0], {
 		type: 'response',
-		commandId: 'test/command',
+		commandId: 'autohost/sendMessage',
 		messageId: 'test-message1',
 		status: 'success',
 	});
@@ -59,16 +62,16 @@ test("doesn't emit bad tachyon messages", async () => {
 		conn.on('message', () => {
 			conn.send({
 				type: 'asdasdasd',
-			} as unknown as TachyonResponseOk);
+			});
 		});
 	});
 	const client = new TachyonClient(connectionParams);
 	await once(client, 'connected');
 	client.send({
 		type: 'request',
-		commandId: 'test/command',
+		commandId: 'autohost/sendMessage',
 		messageId: 'test-message1',
-		data: { test: 'test' },
+		data: { battleId: 'id', message: 'msg' },
 	});
 	let gotMessages = 0;
 	client.on('message', () => {

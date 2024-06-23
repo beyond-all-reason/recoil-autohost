@@ -6,7 +6,8 @@
  * and the client can send messages to the server.
  */
 import { TypedEmitter } from 'tiny-typed-emitter';
-import { parseTachyonMessage, TachyonMessage, TACHYON_PROTOCOL_VERSION } from './tachyonTypes.js';
+import { parseTachyonMessage, TACHYON_PROTOCOL_VERSION, TachyonMessage } from './tachyonTypes.js';
+import { TachyonCommand } from 'tachyon-protocol/types';
 import { getAccessToken } from './oauth2Client.js';
 import WebSocket from 'ws';
 
@@ -113,7 +114,7 @@ export class TachyonClient extends TypedEmitter<{
 		this.close();
 	}
 
-	public send(msg: TachyonMessage): void {
+	public send(msg: TachyonCommand): void {
 		if (this.state !== ClientState.CONNECTED) {
 			throw new Error('Client is not connected');
 		}

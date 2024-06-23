@@ -1,17 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-	createTachyonEvent,
-	precompileSchemas,
-	parseTachyonMessage,
 	callTachyonAutohost,
-	TachyonRequest,
-	KillRequest,
+	createTachyonEvent,
+	parseTachyonMessage,
 	TachyonAutohost,
+	TachyonMessage,
 } from './tachyonTypes.js';
-
-// Let's force all schemas to be compiled to catch errors early
-precompileSchemas();
+import { AutohostKillRequestData } from 'tachyon-protocol/types';
 
 test('parsing correct tachyon message succeeds', () => {
 	const message = {
@@ -37,28 +33,28 @@ test('parsing incorrect tachyon message fails', () => {
 });
 
 test('creating a tachyon event succeeds', () => {
-	const event = createTachyonEvent('autohost/status', { currentGames: 2, maxGames: 4 });
+	const event = createTachyonEvent('autohost/status', { currentBattles: 2, maxBattles: 4 });
 	assert.deepStrictEqual(event, {
 		type: 'event',
 		messageId: event.messageId,
 		commandId: 'autohost/status',
-		data: { currentGames: 2, maxGames: 4 },
+		data: { currentBattles: 2, maxBattles: 4 },
 	});
 });
 
 test('calling tachyon autohost succeeds', async () => {
-	const killData: KillRequest = {
+	const killData: AutohostKillRequestData = {
 		battleId: '873bf189-d659-4527-befd-e9d63b308955',
 	};
-	const req: TachyonRequest = {
+	const req = {
 		messageId: 'some-message-id',
 		commandId: 'autohost/kill',
 		type: 'request',
 		data: killData,
-	};
+	} as TachyonMessage;
 	let called = 0;
 	const autohost = {
-		kill: async (data: KillRequest) => {
+		kill: async (data: AutohostKillRequestData) => {
 			assert.deepStrictEqual(data, killData);
 			++called;
 		},
@@ -75,34 +71,36 @@ test('calling tachyon autohost succeeds', async () => {
 });
 
 test('calling tachyon autohost catches bad commands', async () => {
-	const req: TachyonRequest = {
+	const req = {
 		messageId: 'some-message-id',
 		commandId: 'autohost/killss',
 		type: 'request',
 		data: {},
-	};
+	} as TachyonMessage;
 	const response = await callTachyonAutohost(req, {} as TachyonAutohost);
+	assert(response.status === 'failed');
 	assert.deepStrictEqual(response, {
 		type: 'response',
 		status: 'failed',
 		messageId: req.messageId,
 		commandId: req.commandId,
-		reason: 'unknown_command',
+		reason: 'command_unimplemented',
 		details: response.details,
 	});
 });
 
 test('calling tachyon autohost validates data', async () => {
-	const killData: KillRequest = {
+	const killData: AutohostKillRequestData = {
 		battleId: '873bf189-d659-4527-befd-e9d63b308', // invalid uuid
 	};
-	const req: TachyonRequest = {
+	const req = {
 		messageId: 'some-message-id',
 		commandId: 'autohost/kill',
 		type: 'request',
 		data: killData,
-	};
+	} as TachyonMessage;
 	const response = await callTachyonAutohost(req, {} as TachyonAutohost);
+	assert(response.status === 'failed');
 	assert.deepStrictEqual(response, {
 		type: 'response',
 		status: 'failed',

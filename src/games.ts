@@ -1,4 +1,4 @@
-import type { StartRequest } from './types/startRequest.js';
+import type { AutohostStartRequestData } from 'tachyon-protocol/types';
 import { runEngine, type EngineRunner } from './engineRunner.js';
 import { EventType } from './autohostInterface.js';
 import events from 'node:events';
@@ -33,7 +33,7 @@ export class GamesManager {
 		throw new Error('no free port offsets');
 	}
 
-	async start(req: StartRequest): Promise<{ ip: string; port: number }> {
+	async start(req: AutohostStartRequestData): Promise<{ ip: string; port: number }> {
 		if (this.usedUUIDs.has(req.battleId)) {
 			throw new Error(`game ${req.battleId} already used`);
 		}

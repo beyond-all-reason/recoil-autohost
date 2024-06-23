@@ -3,7 +3,6 @@
   "version": "0.0.1",
   "description": "Simple script to start recoil dedicated instances.",
   "scripts": {
-    "compile-schemas": "json2ts -i src/schemas -o src/types  --style.useTabs --style.singleQuote --style.printWidth 100",
     "start": "tsc && node --enable-source-maps dist/main.js",
     "build": "tsc",
     "build:prod": "tsc -p tsconfig.prod.json",
@@ -25,6 +24,7 @@
     "ajv": "^8.16.0",
     "ajv-formats": "^3.0.1",
     "recoil-tdf": "^1.0.0",
+    "tachyon-protocol": "1.9.0",
     "tiny-typed-emitter": "^2.1.0",
     "ws": "^8.17.1"
   },
@@ -38,10 +38,9 @@
     "@types/ws": "^8.5.10",
     "@typescript-eslint/eslint-plugin": "^7.11.0",
     "@typescript-eslint/parser": "^7.11.0",
-    "eslint-config-prettier": "^9.1.0",
     "eslint": "8.57.0",
+    "eslint-config-prettier": "^9.1.0",
     "fastify": "^4.28.0",
-    "json-schema-to-typescript": "^14.0.5",
     "pino-pretty": "^11.2.1",
     "prettier": "3.3.2",
     "typescript": "^5.4.5"

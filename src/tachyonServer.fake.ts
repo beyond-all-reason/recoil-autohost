@@ -25,12 +25,7 @@ import FastifyFormBody from '@fastify/formbody';
 import FastifyBasicAuth from '@fastify/basic-auth';
 import FastifyWebSocket from '@fastify/websocket';
 import { JsonSchemaToTsProvider } from '@fastify/type-provider-json-schema-to-ts';
-import {
-	parseTachyonMessage,
-	TachyonMessage,
-	TachyonRequest,
-	TACHYON_PROTOCOL_VERSION,
-} from './tachyonTypes.js';
+import { parseTachyonMessage, TachyonMessage, TACHYON_PROTOCOL_VERSION } from './tachyonTypes.js';
 import { TypedEmitter } from 'tiny-typed-emitter';
 import { WebSocket } from 'ws';
 
@@ -75,7 +70,8 @@ export class TachyonClientConnection extends TypedEmitter<{
 		});
 	}
 
-	send(msg: TachyonMessage): void {
+	// Allow sending any object whatsoever as that's useful for testing.
+	send(msg: object): void {
 		const buf = JSON.stringify(msg);
 		this.ws.send(buf);
 	}
@@ -311,7 +307,7 @@ if (import.meta.filename == process.argv[1]) {
 				return `Couldn't find the open connection ${req.params.connIdx}`;
 			}
 			const conn = connections.get(req.params.connIdx)!;
-			const tachyonMsg: TachyonRequest = {
+			const tachyonMsg = {
 				type: 'request',
 				commandId: `autohost/${req.params.autohostCommand}`,
 				messageId: randomUUID(),

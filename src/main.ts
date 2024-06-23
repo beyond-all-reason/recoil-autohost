@@ -6,70 +6,69 @@ import { GamesManager } from './games.js';
 import {
 	callTachyonAutohost,
 	createTachyonEvent,
-	KillRequest,
-	PlayerAddRequest,
-	PlayerKickRequest,
-	PlayerMuteRequest,
-	PlayersSpecRequest,
-	precompileSchemas,
-	SendCommandRequest,
-	SendMessageRequest,
-	StartRequest,
-	StartResponse,
-	SubscribeUpdatesRequest,
 	TachyonAutohost,
 	TachyonError,
 	TachyonServer,
 } from './tachyonTypes.js';
+import {
+	AutohostAddPlayerRequestData,
+	AutohostKickPlayerRequestData,
+	AutohostKillRequestData,
+	AutohostMutePlayerRequestData,
+	AutohostSendCommandRequestData,
+	AutohostSendMessageRequestData,
+	AutohostSpecPlayersRequestData,
+	AutohostStartOkResponseData,
+	AutohostStartRequestData,
+	AutohostSubscribeUpdatesRequestData,
+} from 'tachyon-protocol/types';
 import { TachyonClient, TachyonClientOpts } from './tachyonClient.js';
-
-precompileSchemas();
 
 class Autohost implements TachyonAutohost {
 	private server?: TachyonServer;
 
 	constructor(private manager: GamesManager) {}
 
-	async start(req: StartRequest): Promise<StartResponse> {
+	async start(req: AutohostStartRequestData): Promise<AutohostStartOkResponseData> {
 		const { ip, port } = await this.manager.start(req);
 		return { ips: [ip], port };
 	}
 
-	async kill(_req: KillRequest): Promise<void> {
+	async kill(_req: AutohostKillRequestData): Promise<void> {
 		throw new TachyonError('command_unimplemented', 'kill not implemented');
 	}
 
-	async playerAdd(_req: PlayerAddRequest): Promise<void> {
+	async addPlayer(_req: AutohostAddPlayerRequestData): Promise<void> {
 		throw new TachyonError('command_unimplemented', 'playerAdd not implemented');
 	}
 
-	async playerKick(_req: PlayerKickRequest): Promise<void> {
+	async kickPlayer(_req: AutohostKickPlayerRequestData): Promise<void> {
 		throw new TachyonError('command_unimplemented', 'playerKick not implemented');
 	}
 
-	async playerMute(_req: PlayerMuteRequest): Promise<void> {
+	async mutePlayer(_req: AutohostMutePlayerRequestData): Promise<void> {
 		throw new TachyonError('command_unimplemented', 'playerMute not implemented');
 	}
 
-	async playersSpec(_req: PlayersSpecRequest): Promise<void> {
+	async specPlayers(_req: AutohostSpecPlayersRequestData): Promise<void> {
 		throw new TachyonError('command_unimplemented', 'playersSpec not implemented');
 	}
 
-	async sendCommand(_req: SendCommandRequest): Promise<void> {
+	async sendCommand(_req: AutohostSendCommandRequestData): Promise<void> {
 		throw new TachyonError('command_unimplemented', 'sendCommand not implemented');
 	}
 
-	async sendMessage(_req: SendMessageRequest): Promise<void> {
+	async sendMessage(_req: AutohostSendMessageRequestData): Promise<void> {
 		throw new TachyonError('command_unimplemented', 'sendMessage not implemented');
 	}
 
-	async subscribeUpdates(_req: SubscribeUpdatesRequest): Promise<void> {
+	async subscribeUpdates(_req: AutohostSubscribeUpdatesRequestData): Promise<void> {
 		throw new TachyonError('command_unimplemented', 'subscribeUpdates not implemented');
 	}
 
 	connected(server: TachyonServer): void {
 		this.server = server;
-		server.status({ currentGames: 0, maxGames: 10 });
+		server.status({ currentBattles: 0, maxBattles: 10 });
 	}
 
 	disconnected(): void {

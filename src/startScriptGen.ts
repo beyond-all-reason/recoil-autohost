@@ -1,5 +1,4 @@
-import { StartRequest, Player, AllyTeam, Team, AI } from './types/startRequest.js';
-import StartRequestSchema from './schemas/startRequest.json' with { type: 'json' };
+import { AutohostStartRequestData, Player, AllyTeam, Team, Bot } from 'tachyon-protocol/types';
 import * as tdf from 'recoil-tdf';
 
 function shareKey(a: object, b: object): boolean {
@@ -8,25 +7,25 @@ function shareKey(a: object, b: object): boolean {
 
 function mergeCustomOpts(
 	o: tdf.TDFSerializable,
-	p: { customOpts?: { [k: string]: string } },
+	p: { customProperties?: { [k: string]: string } },
 ): tdf.TDFSerializable {
-	if (p.customOpts) {
-		if (shareKey(o, p.customOpts)) {
-			throw new Error('customOpts must have different keys then outer object');
+	if (p.customProperties) {
+		if (shareKey(o, p.customProperties)) {
+			throw new Error('customProperties must have different keys then outer object');
 		}
-		o = { ...o, ...p.customOpts };
+		o = { ...o, ...p.customProperties };
 	}
 	return o;
 }
 
 function buildAllyTeam(numAllyTeams: number, at: AllyTeam): tdf.TDFSerializable {
 	let o: tdf.TDFSerializable = {};
-	if (at.startbox) {
+	if (at.startBox) {
 		o = {
-			'StartRectTop': at.startbox.top,
-			'StartRectLeft': at.startbox.left,
-			'StartRectBottom': at.startbox.bottom,
-			'StartRectRight': at.startbox.right,
+			'StartRectTop': at.startBox.top,
+			'StartRectLeft': at.startBox.left,
+			'StartRectBottom': at.startBox.bottom,
+			'StartRectRight': at.startBox.right,
 		};
 	}
 	if (at.allies) {
@@ -46,20 +45,20 @@ function buildTeam(
 	playersMap: Map<string, number>,
 	team: Team,
 ): tdf.TDFSerializable {
-	if ((!team.players || team.players.length == 0) && (!team.ais || team.ais.length == 0)) {
+	if ((!team.players || team.players.length == 0) && (!team.bots || team.bots.length == 0)) {
 		throw new Error('There must be at least one player or AI in each team');
 	}
 	const o: tdf.TDFSerializable = {
 		'AllyTeam': allyTeamIdx,
-		'TeamLeader': playersMap.get(team.players?.[0]?.userId ?? team.ais![0].hostUserId!)!,
+		'TeamLeader': playersMap.get(team.players?.[0]?.userId ?? team.bots![0].hostUserId!)!,
 	};
 	if (team.advantage !== undefined) o['Advantage'] = team.advantage;
 	if (team.incomeMultiplier !== undefined) o['IncomeMultiplier'] = team.incomeMultiplier;
-	if (team.side) o['Side'] = team.side;
+	if (team.faction) o['Side'] = team.faction;
 	if (team.color) o['RgbColor'] = `${team.color.r} ${team.color.g} ${team.color.b}`;
 	if (team.startPos) {
 		o['StartPosX'] = team.startPos.x;
-		o['StartPosZ'] = team.startPos.z;
+		o['StartPosZ'] = team.startPos.y;
 	}
 	return mergeCustomOpts(o, team);
 }
@@ -80,33 +79,48 @@ function buildPlayer(teamIdx: number | null, p: Player): tdf.TDFSerializable {
 	return mergeCustomOpts(o, p);
 }
 
-function buildAI(teamIdx: number, playersMap: Map<string, number>, ai: AI): tdf.TDFSerializable {
+function buildAI(teamIdx: number, playersMap: Map<string, number>, ai: Bot): tdf.TDFSerializable {
 	if (!playersMap.has(ai.hostUserId)) {
 		throw new Error('AI hosted by not existing player');
 	}
 	const o: tdf.TDFSerializable = {
-		'ShortName': ai.shortName,
+		'ShortName': ai.aiShortName,
 		'Host': playersMap.get(ai.hostUserId)!,
 		'Team': teamIdx,
 	};
-	if (ai.version) o['Version'] = ai.version;
+	if (ai.aiVersion) o['Version'] = ai.aiVersion;
 	if (ai.name) o['Name'] = ai.name;
-	if (ai.options) o['OPTIONS'] = ai.options;
-	return o;
+	if (ai.aiOptions) o['OPTIONS'] = ai.aiOptions;
+	return mergeCustomOpts(o, ai);
 }
 
-export function scriptGameFromStartRequest(req: StartRequest): {
+export function scriptGameFromStartRequest(req: AutohostStartRequestData): {
 	[k: string]: tdf.TDFSerializable | string | number | boolean;
 } {
+	let startPosType: number;
+	switch (req.startPosType) {
+		case 'fixed':
+			startPosType = 0;
+			break;
+		case 'random':
+			startPosType = 1;
+			break;
+		case 'ingame':
+			startPosType = 2;
+			break;
+		case 'beforegame':
+			startPosType = 3;
+			break;
+		default:
+			throw new Error('Invalid startPosType');
+	}
 	const g: tdf.TDFSerializable = {
 		'GameID': req.battleId,
 		'GameType': req.gameName,
 		'MapName': req.mapName,
 		'ModHash': req.gameArchiveHash ?? '1',
 		'MapHash': req.mapArchiveHash ?? '1',
-		'StartPosType': StartRequestSchema.properties.startPosType.enum.findIndex(
-			(v) => v == req.startPosType,
-		),
+		'StartPosType': startPosType,
 		'MODOPTIONS': req.gameOptions ?? {},
 		'MAPOPTIONS': req.mapOptions ?? {},
 	};
@@ -150,7 +164,7 @@ export function scriptGameFromStartRequest(req: StartRequest): {
 			for (const p of team.players ?? []) {
 				g[`PLAYER${playerIdx++}`] = buildPlayer(teamIdx, p);
 			}
-			for (const ai of team.ais ?? []) {
+			for (const ai of team.bots ?? []) {
 				g[`AI${aiIdx++}`] = buildAI(teamIdx, playersMap, ai);
 			}
 			++teamIdx;
