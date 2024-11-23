@@ -99,7 +99,7 @@ export class TachyonClient extends TypedEmitter<{
 			let tachyonMsg: TachyonMessage;
 			try {
 				tachyonMsg = parseTachyonMessage(msg.toString('utf-8'));
-			} catch (e) {
+			} catch {
 				ws.close(1008, 'Failed to parse base tachyon message');
 				this.close();
 				return;

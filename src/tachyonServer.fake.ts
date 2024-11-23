@@ -63,7 +63,7 @@ export class TachyonClientConnection extends TypedEmitter<{
 			try {
 				const tachyonMsg = parseTachyonMessage(msg);
 				this.emit('message', tachyonMsg);
-			} catch (e) {
+			} catch {
 				this.ws.close(1008, 'Failed to parse base tachyon message');
 				return;
 			}

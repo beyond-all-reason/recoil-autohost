@@ -1,10 +1,9 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
-  "extends": "@tsconfig/node20/tsconfig.json",
+  "extends": "@tsconfig/node22/tsconfig.json",
   "include": ["src/**/*"],
   "compilerOptions": {
     "sourceMap": true,
-    "module": "NodeNext",
     "outDir": "dist",
     "resolveJsonModule": true,
     "incremental": true
