@@ -79,6 +79,7 @@ export class TachyonClient extends TypedEmitter<{
 			headers: {
 				authorization: `Bearer ${accessToken}`,
 			},
+			perMessageDeflate: false,
 		});
 		this.ws = ws;
 
@@ -114,13 +115,20 @@ export class TachyonClient extends TypedEmitter<{
 		this.close();
 	}
 
-	public send(msg: TachyonCommand): void {
-		if (this.state !== ClientState.CONNECTED) {
-			throw new Error('Client is not connected');
-		}
-		if (this.ws) {
-			this.ws.send(JSON.stringify(msg));
-		}
+	public send(msg: TachyonCommand): Promise<void> {
+		return new Promise((resolve, reject) => {
+			if (this.state !== ClientState.CONNECTED) {
+				reject(new Error('Client is not connected'));
+				return;
+			}
+			this.ws!.send(JSON.stringify(msg), { binary: false }, (err) => {
+				if (err) {
+					reject(err);
+				} else {
+					resolve();
+				}
+			});
+		});
 	}
 
 	public close() {

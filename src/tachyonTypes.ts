@@ -102,8 +102,8 @@ export interface TachyonAutohost {
  * The interface that represents the functionality that the autohost can call on the server.
  */
 export interface TachyonServer {
-	status(event: AutohostStatusEventData): void;
-	update(event: AutohostUpdateEventData): void;
+	status(event: AutohostStatusEventData): Promise<void>;
+	update(event: AutohostUpdateEventData): Promise<void>;
 }
 
 // Helper that works as a type guard to check if an element is included in an array.

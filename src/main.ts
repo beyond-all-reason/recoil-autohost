@@ -54,7 +54,7 @@ async function main(argv: string[]) {
 				return;
 			}
 			if (msg.type == 'event') return;
-			client.send(await callTachyonAutohost(msg, autohost));
+			client.send(await callTachyonAutohost(msg, autohost)).catch(() => undefined);
 		});
 
 		try {
