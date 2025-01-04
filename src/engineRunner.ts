@@ -20,7 +20,7 @@ function serializeEngineSettings(obj: { [k: string]: string }): string {
 /**
  * Events emitted by the engine runner
  */
-interface Events {
+export interface EngineRunnerEvents {
 	// Emitted when a packet is received from the engine.
 	packet: (ev: Event) => void;
 
@@ -66,13 +66,18 @@ interface Opts {
 	hostPort: number;
 }
 
+export interface EngineRunner extends TypedEmitter<EngineRunnerEvents> {
+	sendPacket(packet: Buffer): Promise<void>;
+	close(): void;
+}
+
 /**
  * Engine runner class responsible for lifecycle of the engine process and the
  * UDP server for autohost packets.
  *
  * Use the `runEngine` function to create an instance of this class.
  */
-export class EngineRunner extends TypedEmitter<Events> {
+export class EngineRunnerImpl extends TypedEmitter<EngineRunnerEvents> implements EngineRunner {
 	private udpServer: null | dgram.Socket = null;
 	private engineAutohostPort: number = 0;
 	private engineProcess: null | ChildProcess = null;
@@ -95,7 +100,7 @@ export class EngineRunner extends TypedEmitter<Events> {
 		}
 		this.state = State.Starting;
 		const run = async () => {
-			const instanceDir = await EngineRunner.setupInstanceDir(opts);
+			const instanceDir = await EngineRunnerImpl.setupInstanceDir(opts);
 			await this.startUdpServer(opts.autohostPort);
 			await this.startEngine(instanceDir, opts.startRequest, opts.spawnMock ?? spawn);
 			// The last part of startup is handled in the packed handler
@@ -322,7 +327,7 @@ export class EngineRunner extends TypedEmitter<Events> {
  * @throws {never} `error` event is emitted from returned object if an error occurs
  */
 export function runEngine(opts: Opts): EngineRunner {
-	const runner = new EngineRunner();
+	const runner = new EngineRunnerImpl();
 	runner._run(opts);
 	return runner;
 }

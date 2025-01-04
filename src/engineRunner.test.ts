@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import type { AutohostStartRequestData } from 'tachyon-protocol/types';
 import { setImmediate as asyncSetImmediate } from 'timers/promises';
 
-import { runEngine, EngineRunner } from './engineRunner.js';
+import { runEngine, EngineRunnerImpl } from './engineRunner.js';
 import { chdir } from 'node:process';
 import { ChildProcess, spawn, type SpawnOptions } from 'node:child_process';
 
@@ -73,7 +73,7 @@ test('runEngine quick close works', async () => {
 });
 
 test('engineRunner emits error on server start', async () => {
-	const er = new EngineRunner();
+	const er = new EngineRunnerImpl();
 	er._run({
 		...optsBase,
 		spawnMock: (() => {
@@ -90,7 +90,7 @@ test('engineRunner emits error on server start', async () => {
 });
 
 test('engineRunner spawns process correctly', async () => {
-	const er = new EngineRunner();
+	const er = new EngineRunnerImpl();
 	er._run({
 		...optsBase,
 		spawnMock: ((cmd: string, args: string[], opts: SpawnOptions) => {
@@ -102,7 +102,7 @@ test('engineRunner spawns process correctly', async () => {
 });
 
 test('engineRunner close before spawn works', async () => {
-	const er = new EngineRunner();
+	const er = new EngineRunnerImpl();
 	er._run({
 		...optsBase,
 		spawnMock: (() => {
@@ -116,7 +116,7 @@ test('engineRunner close before spawn works', async () => {
 });
 
 test('engineRunner multi start, multi close', async () => {
-	const er = new EngineRunner();
+	const er = new EngineRunnerImpl();
 	er._run(optsBase);
 	assert.throws(() => er._run(optsBase));
 	er.close();
@@ -125,7 +125,7 @@ test('engineRunner multi start, multi close', async () => {
 });
 
 test('engineRunner full run simulated engine', async () => {
-	const er = new EngineRunner();
+	const er = new EngineRunnerImpl();
 	er._run({
 		...optsBase,
 		spawnMock: (() => {
