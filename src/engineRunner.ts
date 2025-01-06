@@ -312,6 +312,12 @@ export class EngineRunnerImpl extends TypedEmitter<EngineRunnerEvents> implement
 		const engineSettings = serializeEngineSettings({
 			'NetworkTimeout': '1000',
 			'InitialNetworkTimeout': '1000',
+			// Needed by the logic in autohost: currently it doesn't properly
+			// handle player number mapping if we allow anonymous spectators.
+			'AllowSpectatorJoin': '0',
+			// We always want to allow players to be added when the controlling
+			// server requests it.
+			'WhiteListAdditionalPlayers': '1',
 		});
 		await fs.writeFile(path.join(instanceDir, 'springsettings.cfg'), engineSettings);
 

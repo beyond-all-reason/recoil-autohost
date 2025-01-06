@@ -1,6 +1,7 @@
 import type { AutohostStartRequestData } from 'tachyon-protocol/types';
 import { runEngine, type EngineRunner } from './engineRunner.js';
-import { EventType } from './autohostInterface.js';
+import { type Event, EventType } from './autohostInterface.js';
+import { TypedEmitter } from 'tiny-typed-emitter';
 import events from 'node:events';
 
 // TODO: make this properly configurable
@@ -11,16 +12,44 @@ const MAX_GAMES = 50;
 const HOST_IP = '127.0.0.1';
 
 interface Game {
-	gameUUID: string;
+	battleId: string;
 	engineRunner: EngineRunner;
 	portOffset: number;
+	started: boolean;
 }
 
-export class GamesManager {
+/**
+ * Events emitted by the GamesManager
+ */
+interface Events {
+	// Emitted when a packet is received from the engine from started game.
+	packet: (battleId: string, ev: Event) => void;
+
+	// Emitted when an error occurs in the engine from started game.
+	error: (battleId: string, err: Error) => void;
+
+	// Emitted when the engine has exited, only if it was started before.
+	exit: (battleId: string) => void;
+}
+
+/**
+ * GamesManager is responsible for managing a pool of EngineRunners and assigning
+ * them to free ports from the designated range.
+ */
+export class GamesManager extends TypedEmitter<Events> {
 	private games: Map<string, Game> = new Map();
-	private usedUUIDs: Set<string> = new Set();
+	private usedBattleIds: Set<string> = new Set();
 	private usedPortOffset: Set<number> = new Set();
 	private lastPortOffset: number = 0;
+	private runEngine: typeof runEngine;
+
+	/**
+	 * @param opts Optional, runEngineFn is for tests.
+	 */
+	constructor(opts?: { runEngineFn?: typeof runEngine }) {
+		super();
+		this.runEngine = (opts || {}).runEngineFn || runEngine;
+	}
 
 	private findFreePortOffset(): number {
 		for (let i = 0; i < MAX_PORTS; i++) {
@@ -34,45 +63,62 @@ export class GamesManager {
 	}
 
 	async start(req: AutohostStartRequestData): Promise<{ ip: string; port: number }> {
-		if (this.usedUUIDs.has(req.battleId)) {
+		if (this.usedBattleIds.has(req.battleId)) {
 			throw new Error(`game ${req.battleId} already used`);
 		}
 		if (this.games.size >= MAX_GAMES) {
 			throw new Error('too many games running');
 		}
-		this.usedUUIDs.add(req.battleId);
+		this.usedBattleIds.add(req.battleId);
 
 		const portOffset = this.findFreePortOffset();
-		const er = runEngine({
+		const er = this.runEngine({
 			startRequest: req,
 			hostIP: HOST_IP,
 			hostPort: ENGINE_START_PORT + portOffset,
 			autohostPort: AUTOHOST_START_PORT + portOffset,
 		});
 		const game: Game = {
-			gameUUID: req.battleId,
+			battleId: req.battleId,
 			engineRunner: er,
 			portOffset: portOffset,
+			started: false,
 		};
-		this.games.set(game.gameUUID, game);
+		this.games.set(game.battleId, game);
 
 		er.on('error', (err) => {
-			console.error(`game ${game.gameUUID}: error`, err);
+			console.error(`game ${game.battleId}: error`, err);
+			if (game.started) this.emit('error', game.battleId, err);
 		});
 
 		er.on('exit', () => {
-			console.log(`game ${game.gameUUID}: exited`);
-			this.games.delete(game.gameUUID);
+			console.log(`game ${game.battleId}: exited`);
+			this.games.delete(game.battleId);
 			this.usedPortOffset.delete(game.portOffset);
+			if (game.started) this.emit('exit', game.battleId);
 		});
 
 		er.on('packet', (packet) => {
 			if (packet.type !== EventType.GAME_LUAMSG) {
-				console.log(`game ${game.gameUUID}: packet:`, packet);
+				console.log(`game ${game.battleId}: packet:`, packet);
 			}
+			if (game.started) this.emit('packet', game.battleId, packet);
 		});
 
 		await events.once(er, 'start');
+		game.started = true;
 		return { ip: HOST_IP, port: ENGINE_START_PORT + portOffset };
+	}
+
+	sendPacket(battleId: string, packet: Buffer): Promise<void> {
+		const game = this.games.get(battleId);
+		if (!game) throw new Error(`game ${battleId} doesn't exist`);
+		return game.engineRunner.sendPacket(packet);
+	}
+
+	killGame(battleId: string) {
+		const game = this.games.get(battleId);
+		if (!game) throw new Error(`game ${battleId} doesn't exist`);
+		game.engineRunner.close();
 	}
 }

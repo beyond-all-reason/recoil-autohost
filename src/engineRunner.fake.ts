@@ -2,12 +2,11 @@
  * Fake for the EngineRunner class to be used in the tests of other components.
  */
 import { TypedEmitter } from 'tiny-typed-emitter';
+import { mock } from 'node:test';
 import { EngineRunner, EngineRunnerEvents, runEngine } from './engineRunner.js';
 
 export class EngineRunnerFake extends TypedEmitter<EngineRunnerEvents> implements EngineRunner {
 	private stopped = false;
-
-	public async sendPacket() {}
 
 	constructor() {
 		super();
@@ -18,14 +17,16 @@ export class EngineRunnerFake extends TypedEmitter<EngineRunnerEvents> implement
 		}, 0);
 	}
 
-	public close() {
+	close = mock.fn(() => {
 		if (!this.stopped) {
 			this.stopped = true;
 			process.nextTick(() => {
 				this.emit('exit');
 			});
 		}
-	}
+	});
+
+	sendPacket = mock.fn(async () => {});
 }
 
 export const fakeRunEngine: typeof runEngine = function () {
