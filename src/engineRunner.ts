@@ -5,6 +5,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import dgram from 'node:dgram';
 import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
+import { type Logger, pino } from 'pino';
 import * as tdf from 'recoil-tdf';
 import { TypedEmitter } from 'tiny-typed-emitter';
 import { parsePacket, type Event, EventType } from './autohostInterface.js';
@@ -64,6 +65,7 @@ interface Opts {
 	autohostPort: number;
 	hostIP: string;
 	hostPort: number;
+	logger?: Logger;
 }
 
 export interface EngineRunner extends TypedEmitter<EngineRunnerEvents> {
@@ -83,9 +85,11 @@ export class EngineRunnerImpl extends TypedEmitter<EngineRunnerEvents> implement
 	private engineProcess: null | ChildProcess = null;
 	private engineSpawned: boolean = false;
 	private state: State = State.None;
+	private logger: Logger;
 
-	public constructor() {
+	public constructor(logger?: Logger) {
 		super();
+		this.logger = (logger ?? pino()).child({ class: 'EngineRunner' });
 	}
 
 	/**
@@ -95,6 +99,7 @@ export class EngineRunnerImpl extends TypedEmitter<EngineRunnerEvents> implement
 	 *             that can be used for testing.
 	 */
 	public _run(opts: Opts & { spawnMock?: typeof spawn }) {
+		this.logger = this.logger.child({ battleId: opts.startRequest.battleId });
 		if (this.state != State.None) {
 			throw new Error('EngineRunner already started');
 		}
@@ -156,7 +161,7 @@ export class EngineRunnerImpl extends TypedEmitter<EngineRunnerEvents> implement
 		// with SIGKILL. This is a bit aggressive but we don't want to wait
 		// forever for the engine to exit, it should exit quickly.
 		const engineSigKill = setTimeout(() => {
-			console.error("Engine didn't exit after SIGTERM, trying with SIGKILL");
+			this.logger.error("Engine didn't exit after SIGTERM, trying with SIGKILL");
 			this.engineProcess?.kill('SIGKILL');
 		}, 20000);
 
@@ -170,7 +175,7 @@ export class EngineRunnerImpl extends TypedEmitter<EngineRunnerEvents> implement
 			// This should never happen, if it does there isn't much we
 			// can do here except unref and log it :(
 			this.engineProcess.unref();
-			console.error('Failed to SIGTERM engine process, it might linger');
+			this.logger.error('Failed to SIGTERM engine process, it might linger');
 		}
 	}
 
@@ -228,14 +233,17 @@ export class EngineRunnerImpl extends TypedEmitter<EngineRunnerEvents> implement
 				this.emit('start');
 			}
 			if (this.engineAutohostPort != rinfo.port) {
-				console.log(`Received packet from ${rinfo.port}, blocked`);
+				this.logger.warn(
+					{ sourcePort: rinfo.port },
+					`Received packet from ${rinfo.port}, blocked`,
+				);
 				return;
 			}
 			this.emit('packet', packet);
 		} catch (err) {
 			// Don't crash the server on packet parsing errors, it might have been
 			// a random packet from localhost or something.
-			console.warn(`Failed to parse packet: ${err}`);
+			this.logger.warn(err, 'Failed to parse packet');
 		}
 	}
 
@@ -333,7 +341,7 @@ export class EngineRunnerImpl extends TypedEmitter<EngineRunnerEvents> implement
  * @throws {never} `error` event is emitted from returned object if an error occurs
  */
 export function runEngine(opts: Opts): EngineRunner {
-	const runner = new EngineRunnerImpl();
+	const runner = new EngineRunnerImpl(opts.logger);
 	runner._run(opts);
 	return runner;
 }

@@ -17,7 +17,6 @@ const tmpSock = dgram.createSocket('udp4').bind(0, '127.0.0.1');
 await events.once(tmpSock, 'listening');
 const testPort = tmpSock.address().port;
 tmpSock.close();
-console.log('testPort', testPort);
 
 // The contents of this except for the gameUUID doesn't matter much
 // unit tests don't execute the real engine.

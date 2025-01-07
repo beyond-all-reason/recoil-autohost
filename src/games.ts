@@ -1,3 +1,4 @@
+import { type Logger, pino } from 'pino';
 import type { AutohostStartRequestData } from 'tachyon-protocol/types';
 import { runEngine, type EngineRunner } from './engineRunner.js';
 import { type Event, EventType } from './autohostInterface.js';
@@ -16,6 +17,7 @@ interface Game {
 	engineRunner: EngineRunner;
 	portOffset: number;
 	started: boolean;
+	logger: Logger;
 }
 
 /**
@@ -42,13 +44,17 @@ export class GamesManager extends TypedEmitter<Events> {
 	private usedPortOffset: Set<number> = new Set();
 	private lastPortOffset: number = 0;
 	private runEngine: typeof runEngine;
+	private logger: Logger;
 
 	/**
 	 * @param opts Optional, runEngineFn is for tests.
 	 */
-	constructor(opts?: { runEngineFn?: typeof runEngine }) {
+	constructor(opts?: { logger?: Logger; runEngineFn?: typeof runEngine }) {
 		super();
-		this.runEngine = (opts || {}).runEngineFn || runEngine;
+		const o = opts || {};
+		this.runEngine = o.runEngineFn ?? runEngine;
+		const parentLogger = o.logger ?? pino();
+		this.logger = parentLogger.child({ class: 'GamesManager' });
 	}
 
 	private findFreePortOffset(): number {
@@ -83,16 +89,17 @@ export class GamesManager extends TypedEmitter<Events> {
 			engineRunner: er,
 			portOffset: portOffset,
 			started: false,
+			logger: this.logger.child({ battleId: req.battleId }),
 		};
 		this.games.set(game.battleId, game);
 
 		er.on('error', (err) => {
-			console.error(`game ${game.battleId}: error`, err);
+			game.logger.error(err, 'battle crashed');
 			if (game.started) this.emit('error', game.battleId, err);
 		});
 
 		er.on('exit', () => {
-			console.log(`game ${game.battleId}: exited`);
+			game.logger.info('battle exited');
 			this.games.delete(game.battleId);
 			this.usedPortOffset.delete(game.portOffset);
 			if (game.started) this.emit('exit', game.battleId);
@@ -100,7 +107,7 @@ export class GamesManager extends TypedEmitter<Events> {
 
 		er.on('packet', (packet) => {
 			if (packet.type !== EventType.GAME_LUAMSG) {
-				console.log(`game ${game.battleId}: packet:`, packet);
+				game.logger.trace(packet, 'got packet');
 			}
 			if (game.started) this.emit('packet', game.battleId, packet);
 		});

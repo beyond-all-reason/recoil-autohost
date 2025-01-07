@@ -2,6 +2,7 @@
  * The core module providing a translation between tachyon-land and engine-land.
  * See Autohost class for more details.
  */
+import { type Logger, pino } from 'pino';
 import { TachyonAutohost, TachyonError, TachyonServer } from './tachyonTypes.js';
 import {
 	AutohostAddPlayerRequestData,
@@ -57,9 +58,15 @@ export class Autohost implements TachyonAutohost {
 	private server?: TachyonServer;
 	// battleId -> (userId <-> playerNumber <-> name)
 	private battlePlayers: Map<string, MultiIndex<PlayerIds>> = new Map();
+	public logger: Logger;
 
-	constructor(private manager: GamesManager) {
+	constructor(
+		private manager: GamesManager,
+		opts?: { logger?: Logger },
+	) {
 		this.manager.on('exit', (battleId) => this.battlePlayers.delete(battleId));
+		const parentLogger = (opts || {}).logger ?? pino();
+		this.logger = parentLogger.child({ class: 'Autohost' });
 	}
 
 	async start(req: AutohostStartRequestData): Promise<AutohostStartOkResponseData> {
@@ -108,9 +115,14 @@ export class Autohost implements TachyonAutohost {
 			args.push(boolToStr(true));
 		}
 		const command = serializeCommandPacket('adduser', args);
-		await this.manager.sendPacket(req.battleId, command);
-		// TODO: if sending of the packet fails, the player number mapping might
-		// get incorrect, maybe handle it somehow, or at least notify about it.
+		try {
+			await this.manager.sendPacket(req.battleId, command);
+		} catch (err) {
+			// TODO: if sending of the packet fails, the player number mapping might
+			// get incorrect, maybe handle it somehow.
+			this.logger.warn(err, 'failing to send adduser, it might cause playerNumber desync');
+			throw err;
+		}
 	}
 
 	kickPlayer(req: AutohostKickPlayerRequestData): Promise<void> {

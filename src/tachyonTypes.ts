@@ -5,6 +5,7 @@
  * schemas and the actual implementation of the Tachyon protocol. Most of this code could be
  * automatically generated, but it's small enough that it's not worth the effort at the moment.
  */
+import { type Logger } from 'pino';
 import { type TachyonMeta, tachyonMeta } from 'tachyon-protocol';
 import { validator } from 'tachyon-protocol/validators';
 import { randomUUID } from 'node:crypto';
@@ -96,6 +97,7 @@ export interface TachyonAutohost {
 	subscribeUpdates(request: AutohostSubscribeUpdatesRequestData): Promise<void>;
 	connected(server: TachyonServer): void;
 	disconnected(): void;
+	logger: Logger;
 }
 
 /**
@@ -176,11 +178,15 @@ export async function callTachyonAutohost(
 			) {
 				return createTachyonResponseFail(req, error.reason, error.details);
 			}
-			console.error(
-				`Invalid TachyonError reason: ${error.reason} for command ${req.commandId}. Details: ${error.details}`,
+			autohost.logger.error(
+				new Error(
+					`Invalid TachyonError reason: ${error.reason} for command ${req.commandId}`,
+					{ cause: error },
+				),
+				'autohost returned invalid error',
 			);
 		} else {
-			console.error(`Error processing command ${req.commandId}: ${error}`);
+			autohost.logger.error(error, `autohost failed to process command ${req.commandId}`);
 		}
 		return createTachyonResponseFail(req, 'internal_error');
 	}

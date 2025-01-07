@@ -18,9 +18,8 @@
  *     --json '{"battleId": "24b72b50-ef8c-4899-8372-d2b3a0ca3d7b"}'
  *
  */
-import util from 'node:util';
 import { randomUUID } from 'node:crypto';
-import Fastify from 'fastify';
+import Fastify, { FastifyBaseLogger } from 'fastify';
 import FastifyFormBody from '@fastify/formbody';
 import FastifyBasicAuth from '@fastify/basic-auth';
 import FastifyWebSocket from '@fastify/websocket';
@@ -28,6 +27,7 @@ import { JsonSchemaToTsProvider } from '@fastify/type-provider-json-schema-to-ts
 import { parseTachyonMessage, TachyonMessage, TACHYON_PROTOCOL_VERSION } from './tachyonTypes.js';
 import { TypedEmitter } from 'tiny-typed-emitter';
 import { WebSocket } from 'ws';
+import { pino } from 'pino';
 
 class Oauth2Error extends Error {
 	error: string;
@@ -41,7 +41,10 @@ export class TachyonClientConnection extends TypedEmitter<{
 	message: (msg: TachyonMessage) => void;
 	close: () => void;
 }> {
-	constructor(private readonly ws: WebSocket) {
+	constructor(
+		private readonly ws: WebSocket,
+		private readonly logger: FastifyBaseLogger,
+	) {
 		super();
 
 		const pingInterval = setInterval(() => {
@@ -55,7 +58,7 @@ export class TachyonClientConnection extends TypedEmitter<{
 
 		ws.on('message', (buf, isBinary) => {
 			if (isBinary) {
-				console.warn('Received binary message, closing');
+				logger.warn('Received binary message, closing');
 				this.ws.close(1003, 'Binary messages are not supported');
 				return;
 			}
@@ -113,9 +116,9 @@ interface TachyonServerOpts {
 	port?: number;
 
 	/**
-	 * Whether to enable the Fastify logger, defaults to false.
+	 * Custom logger instance.
 	 */
-	logger?: boolean;
+	loggerInstance?: FastifyBaseLogger;
 
 	/**
 	 * The OAuth2 client ID, defaults to 'autohost1'.
@@ -131,13 +134,14 @@ interface TachyonServerOpts {
 export async function createTachyonServer(options?: TachyonServerOpts) {
 	const opts = {
 		port: 0,
-		logger: false,
 		clientId: 'autohost1',
 		clientSecret: 'pass1',
 		...options,
 	};
 
-	const server = Fastify({ logger: opts.logger }).withTypeProvider<JsonSchemaToTsProvider>();
+	const server = Fastify({
+		loggerInstance: opts.loggerInstance,
+	}).withTypeProvider<JsonSchemaToTsProvider>();
 
 	// OAuth2 stuff. It supports only client_credentials grant type
 	// with a single hardcoded client. Example call to get a token:
@@ -251,7 +255,7 @@ export async function createTachyonServer(options?: TachyonServerOpts) {
 			},
 		},
 		(conn) => {
-			const tachyonConnection = new TachyonClientConnection(conn);
+			const tachyonConnection = new TachyonClientConnection(conn, server.log);
 			tachyonServer.emit('connection', tachyonConnection);
 		},
 	);
@@ -261,9 +265,10 @@ export async function createTachyonServer(options?: TachyonServerOpts) {
 
 // Start the server and add some helpers if this file is run directly on CLI.
 if (import.meta.filename == process.argv[1]) {
+	const logger = pino();
 	const srv = await createTachyonServer({
 		port: 8084,
-		logger: true,
+		loggerInstance: logger,
 	});
 
 	const connections = new Map<number, TachyonClientConnection>();
@@ -271,16 +276,17 @@ if (import.meta.filename == process.argv[1]) {
 
 	srv.on('connection', (conn) => {
 		const connId = connIdx++;
+		const l = logger.child({ connId });
 		connections.set(connId, conn);
-		console.log(`Opened connection ${connId}`);
+		l.info('new connection');
 
 		conn.on('close', () => {
 			connections.delete(connId);
-			console.log(`Closed connection ${connId}`);
+			l.info('connection closed');
 		});
 
 		conn.on('message', (msg) => {
-			console.log(`Msg from ${connId}`, util.inspect(msg, { depth: null, colors: true }));
+			l.info({ packet: msg }, 'new message');
 		});
 	});
 

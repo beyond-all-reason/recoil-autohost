@@ -5,6 +5,7 @@ import { Autohost } from './autohost.js';
 import { callTachyonAutohost, createTachyonEvent, TachyonServer } from './tachyonTypes.js';
 import { TachyonClient, TachyonClientOpts } from './tachyonClient.js';
 import { loadConfig } from './config.js';
+import { pino } from 'pino';
 
 async function main(argv: string[]) {
 	if (argv.length < 3) {
@@ -13,8 +14,9 @@ async function main(argv: string[]) {
 	}
 	const config = await loadConfig(argv[2]);
 
-	const manager = new GamesManager();
-	const autohost = new Autohost(manager);
+	const logger = pino();
+	const manager = new GamesManager({ logger });
+	const autohost = new Autohost(manager, { logger });
 
 	const clientOpts: TachyonClientOpts = {
 		hostname: config.hostname,
@@ -32,11 +34,11 @@ async function main(argv: string[]) {
 	const maxReconnectDelay = config.maxReconnectDelaySeconds * 1000;
 	let nextReconnectDelay: number = minReconnectDelay;
 	for (;;) {
-		console.log('Connecting to', config.hostname, '...');
+		logger.info({ tachyonServer: config.hostname }, 'connecting to tachyon server');
 		const client = new TachyonClient(clientOpts);
 
 		client.on('connected', () => {
-			console.log('Connected to the Tachyon server');
+			logger.info('connected to tachyon server');
 			nextReconnectDelay = minReconnectDelay;
 			const ts: TachyonServer = {
 				status: (status) => client.send(createTachyonEvent('autohost/status', status)),
@@ -47,10 +49,7 @@ async function main(argv: string[]) {
 
 		client.on('message', async (msg) => {
 			if (msg.type == 'response') {
-				console.warn(
-					"Unexpected response, we don't send requests, commandId: ",
-					msg.commandId,
-				);
+				logger.warn({ msg }, `Unexpected response, we don't send requests`);
 				return;
 			}
 			if (msg.type == 'event') return;
@@ -60,12 +59,17 @@ async function main(argv: string[]) {
 		try {
 			await once(client, 'close');
 		} catch (err) {
-			console.error('Client connection error:', err);
+			logger.error(err, 'failed to connect to tachyon server');
 			nextReconnectDelay = Math.min(nextReconnectDelay * 2, maxReconnectDelay);
 		} finally {
 			autohost.disconnected();
 		}
-		console.log(`Reconnecting in ${nextReconnectDelay}ms...`);
+		logger.info(
+			{
+				reconnectDelay: nextReconnectDelay,
+			},
+			`will reconnect to tachyon server after delay`,
+		);
 		await setTimeout(nextReconnectDelay);
 	}
 }
