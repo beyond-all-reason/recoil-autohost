@@ -3,6 +3,7 @@
   "extends": "@tsconfig/node22/tsconfig.json",
   "include": ["src/**/*"],
   "compilerOptions": {
+    "lib": ["es2023", "es2024.promise"],
     "sourceMap": true,
     "outDir": "dist",
     "resolveJsonModule": true,
