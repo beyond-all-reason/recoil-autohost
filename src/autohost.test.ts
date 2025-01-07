@@ -107,12 +107,13 @@ suite('Autohost', async () => {
 		const req2 = createStartRequest([{ name: 'user2', userId: randomUUID() }]);
 		req2.battleId = req1.battleId;
 
-		await assert.rejects(ah.start(req2));
+		const expectedError = { name: 'TachyonError', reason: 'battle_already_exists' };
+		await assert.rejects(ah.start(req2), expectedError);
 
 		// rejects even after the previous battle is done
 		process.nextTick(() => er.close());
 		await once(gm, 'exit');
-		await assert.rejects(ah.start(req2));
+		await assert.rejects(ah.start(req2), expectedError);
 	});
 
 	test('simple tachyon connect/disconnect', () => {
@@ -137,7 +138,11 @@ suite('Autohost', async () => {
 	await test('kill battle not found', async () => {
 		const gm = new GamesManager({ runEngineFn: fakeRunEngine });
 		const ah = new Autohost(gm);
-		await assert.rejects(ah.kill({ battleId: 'asdasd' }), /.*doesn't exist.*/i);
+		await assert.rejects(ah.kill({ battleId: 'asdasd' }), {
+			name: 'TachyonError',
+			reason: 'invalid_request',
+			message: /.*doesn't exist.*/i,
+		});
 	});
 
 	await test('sendCommand', async () => {
@@ -154,10 +159,11 @@ suite('Autohost', async () => {
 	await test('sendCommand battle not found', async () => {
 		const gm = new GamesManager({ runEngineFn: fakeRunEngine });
 		const ah = new Autohost(gm);
-		await assert.rejects(
-			ah.sendCommand({ battleId: 'asdasd', command: 'asd' }),
-			/.*doesn't exist.*/i,
-		);
+		await assert.rejects(ah.sendCommand({ battleId: 'asdasd', command: 'asd' }), {
+			name: 'TachyonError',
+			reason: 'invalid_request',
+			message: /.*doesn't exist.*/i,
+		});
 	});
 
 	await test('sendMessage', async () => {
@@ -191,13 +197,11 @@ suite('Autohost', async () => {
 		const ah = new Autohost(gm);
 		const req = createStartRequest([{ name: 'user1', userId: '10' }]);
 		await ah.start(req);
-		await assert.rejects(
-			ah.kickPlayer({
-				battleId: req.battleId,
-				userId: '11',
-			}),
-			/player/i,
-		);
+		await assert.rejects(ah.kickPlayer({ battleId: req.battleId, userId: '11' }), {
+			name: 'TachyonError',
+			reason: 'invalid_request',
+			message: /.*player.*/i,
+		});
 	});
 
 	await test('kickPlayer not found battle', async () => {
@@ -206,13 +210,11 @@ suite('Autohost', async () => {
 		const ah = new Autohost(gm);
 		const req = createStartRequest([{ name: 'user1', userId: '10' }]);
 		await ah.start(req);
-		await assert.rejects(
-			ah.kickPlayer({
-				battleId: 'asdasdasd',
-				userId: '10',
-			}),
-			/battle/i,
-		);
+		await assert.rejects(ah.kickPlayer({ battleId: 'asdasdasd', userId: '10' }), {
+			name: 'TachyonError',
+			reason: 'invalid_request',
+			message: /.*battle.*/i,
+		});
 	});
 
 	await test('mutePlayer', async () => {
@@ -265,6 +267,7 @@ suite('Autohost', async () => {
 				battleId: req.battleId,
 				userIds: ['12', '10', '15'],
 			}),
+			{ name: 'TachyonError', reason: 'invalid_request' },
 		);
 		assert.equal(er.sendPacket.mock.callCount(), 0);
 	});
@@ -317,6 +320,7 @@ suite('Autohost', async () => {
 				userId: '11',
 				password: 'pass123',
 			}),
+			{ name: 'TachyonError', reason: 'invalid_request' },
 		);
 	});
 
@@ -332,6 +336,7 @@ suite('Autohost', async () => {
 				userId: '10',
 				password: 'pass123',
 			}),
+			{ name: 'TachyonError', reason: 'invalid_request' },
 		);
 	});
 
@@ -351,6 +356,7 @@ suite('Autohost', async () => {
 				userId: '10',
 				password: 'pass123',
 			}),
+			{ name: 'Error' },
 		);
 		await ah.addPlayer({
 			battleId: req.battleId,

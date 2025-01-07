@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { AutohostStartRequestData } from 'tachyon-protocol/types';
-import { scriptGameFromStartRequest } from './startScriptGen.js';
+import { scriptGameFromStartRequest, StartScriptGenError } from './startScriptGen.js';
 
 test('simple full example', () => {
 	const startReq: AutohostStartRequestData = {
@@ -278,7 +278,7 @@ test('throw on non-unique players', () => {
 			},
 		],
 	};
-	assert.throws(() => scriptGameFromStartRequest(startReq1));
+	assert.throws(() => scriptGameFromStartRequest(startReq1), StartScriptGenError);
 
 	// Also in spectators.
 	const startReq2: AutohostStartRequestData = {
@@ -306,7 +306,7 @@ test('throw on non-unique players', () => {
 			},
 		],
 	};
-	assert.throws(() => scriptGameFromStartRequest(startReq2));
+	assert.throws(() => scriptGameFromStartRequest(startReq2), StartScriptGenError);
 });
 
 test('at least one ai/player is required', () => {
@@ -343,7 +343,7 @@ test("custom opts can't override built-in fields", () => {
 			},
 		],
 	};
-	assert.throws(() => scriptGameFromStartRequest(startReq));
+	assert.throws(() => scriptGameFromStartRequest(startReq), StartScriptGenError);
 });
 
 test('ai must reference existing player', () => {
@@ -371,5 +371,5 @@ test('ai must reference existing player', () => {
 			},
 		],
 	};
-	assert.throws(() => scriptGameFromStartRequest(startReq));
+	assert.throws(() => scriptGameFromStartRequest(startReq), StartScriptGenError);
 });

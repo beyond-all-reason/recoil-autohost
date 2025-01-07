@@ -3,6 +3,7 @@ import type { AutohostStartRequestData } from 'tachyon-protocol/types';
 import { runEngine, type EngineRunner } from './engineRunner.js';
 import { type Event, EventType } from './autohostInterface.js';
 import { TypedEmitter } from 'tiny-typed-emitter';
+import { TachyonError } from './tachyonTypes.js';
 import events from 'node:events';
 
 // TODO: make this properly configurable
@@ -65,15 +66,18 @@ export class GamesManager extends TypedEmitter<Events> {
 				return this.lastPortOffset;
 			}
 		}
-		throw new Error('no free port offsets');
+		throw new TachyonError('internal_error', 'no free port offsets');
 	}
 
 	async start(req: AutohostStartRequestData): Promise<{ ip: string; port: number }> {
 		if (this.usedBattleIds.has(req.battleId)) {
-			throw new Error(`game ${req.battleId} already used`);
+			throw new TachyonError<'autohost/start'>(
+				'battle_already_exists',
+				`game ${req.battleId} already used`,
+			);
 		}
 		if (this.games.size >= MAX_GAMES) {
-			throw new Error('too many games running');
+			throw new TachyonError('invalid_request', 'too many games running');
 		}
 		this.usedBattleIds.add(req.battleId);
 
@@ -119,13 +123,13 @@ export class GamesManager extends TypedEmitter<Events> {
 
 	async sendPacket(battleId: string, packet: Buffer): Promise<void> {
 		const game = this.games.get(battleId);
-		if (!game) throw new Error(`game ${battleId} doesn't exist`);
+		if (!game) throw new TachyonError('invalid_request', `game ${battleId} doesn't exist`);
 		return game.engineRunner.sendPacket(packet);
 	}
 
 	killGame(battleId: string) {
 		const game = this.games.get(battleId);
-		if (!game) throw new Error(`game ${battleId} doesn't exist`);
+		if (!game) throw new TachyonError('invalid_request', `game ${battleId} doesn't exist`);
 		game.engineRunner.close();
 	}
 }

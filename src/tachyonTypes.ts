@@ -71,7 +71,10 @@ export function parseTachyonMessage(message: string): TachyonMessage {
  * To be used primarily by the autohost interface implementation. All generic errors
  * otherwise will be caught and transformed into a generic internal error.
  */
-export class TachyonError<T extends string & keyof TachyonMeta['failedReasons']> extends Error {
+export class TachyonError<
+	// sendMessage is one of the simples messages with only basic common errors, so let's use it as default
+	T extends keyof TachyonMeta['failedReasons'] = 'autohost/sendMessage',
+> extends Error {
 	constructor(
 		public readonly reason: TachyonMeta['failedReasons'][T][number],
 		public readonly details: string,
@@ -171,22 +174,31 @@ export async function callTachyonAutohost(
 		}
 	} catch (error) {
 		const failedReasons = tachyonMeta.schema.failedReasons;
+		if (
+			(error instanceof TachyonError && error.reason === 'internal_error') ||
+			!(error instanceof TachyonError)
+		) {
+			autohost.logger.error(error, `autohost failed to process command ${req.commandId}`);
+		}
+
 		if (error instanceof TachyonError) {
 			if (
 				req.commandId in failedReasons &&
 				includes(failedReasons[req.commandId as keyof typeof failedReasons], error.reason)
 			) {
+				if (error.reason === 'internal_error') {
+					autohost.logger.error(
+						error,
+						`autohost failed to process command ${req.commandId}`,
+					);
+				}
 				return createTachyonResponseFail(req, error.reason, error.details);
 			}
+			// This should never happen.
 			autohost.logger.error(
-				new Error(
-					`Invalid TachyonError reason: ${error.reason} for command ${req.commandId}`,
-					{ cause: error },
-				),
-				'autohost returned invalid error',
+				error,
+				`Autohost returned invalid TachyonError reason: ${error.reason} for command ${req.commandId}`,
 			);
-		} else {
-			autohost.logger.error(error, `autohost failed to process command ${req.commandId}`);
 		}
 		return createTachyonResponseFail(req, 'internal_error');
 	}

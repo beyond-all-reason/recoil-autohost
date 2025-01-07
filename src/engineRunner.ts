@@ -8,9 +8,10 @@ import * as fs from 'node:fs/promises';
 import { type Logger, pino } from 'pino';
 import * as tdf from 'recoil-tdf';
 import { TypedEmitter } from 'tiny-typed-emitter';
-import { parsePacket, type Event, EventType } from './autohostInterface.js';
-import { scriptGameFromStartRequest } from './startScriptGen.js';
+import { parsePacket, type Event, EventType, PacketParseError } from './autohostInterface.js';
+import { scriptGameFromStartRequest, StartScriptGenError } from './startScriptGen.js';
 import type { AutohostStartRequestData } from 'tachyon-protocol/types';
+import { TachyonError } from './tachyonTypes.js';
 
 function serializeEngineSettings(obj: { [k: string]: string }): string {
 	return Object.entries(obj)
@@ -243,7 +244,11 @@ export class EngineRunnerImpl extends TypedEmitter<EngineRunnerEvents> implement
 		} catch (err) {
 			// Don't crash the server on packet parsing errors, it might have been
 			// a random packet from localhost or something.
-			this.logger.warn(err, 'Failed to parse packet');
+			if (err instanceof PacketParseError) {
+				this.logger.warn(err, 'Failed to parse packet');
+			} else {
+				this.logger.error(err, 'Unexpected error when handling packet');
+			}
 		}
 	}
 
@@ -254,7 +259,10 @@ export class EngineRunnerImpl extends TypedEmitter<EngineRunnerEvents> implement
 	): Promise<void> {
 		const engineDir = path.resolve('engines', startRequest.engineVersion);
 		if (!(await fs.stat(engineDir).catch(() => null))) {
-			throw new Error(`engine version ${startRequest.engineVersion} doesn't exist`);
+			throw new TachyonError<'autohost/start'>(
+				'engine_version_not_available',
+				`engine version ${startRequest.engineVersion} not available exist`,
+			);
 		}
 
 		if (this.state != State.Starting) return;
@@ -303,7 +311,15 @@ export class EngineRunnerImpl extends TypedEmitter<EngineRunnerEvents> implement
 	 * files are written.
 	 */
 	private static async setupInstanceDir(opts: Opts): Promise<string> {
-		const game = scriptGameFromStartRequest(opts.startRequest);
+		let game;
+		try {
+			game = scriptGameFromStartRequest(opts.startRequest);
+		} catch (err) {
+			if (err instanceof StartScriptGenError) {
+				throw new TachyonError('invalid_request', `invalid start script: ${err.message}`);
+			}
+			throw err;
+		}
 		game['IsHost'] = 1;
 		game['HostIP'] = opts.hostIP;
 		game['HostPort'] = opts.hostPort;

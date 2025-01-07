@@ -312,7 +312,7 @@ export type Event =
 export class PacketParseError extends Error {
 	constructor(msg: string) {
 		super(msg);
-		this.name = 'DecodeError';
+		this.name = 'PacketParseError';
 	}
 }
 

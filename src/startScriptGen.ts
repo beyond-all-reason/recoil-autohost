@@ -1,6 +1,13 @@
 import { AutohostStartRequestData, Player, AllyTeam, Team, Bot } from 'tachyon-protocol/types';
 import * as tdf from 'recoil-tdf';
 
+export class StartScriptGenError extends Error {
+	constructor(msg: string) {
+		super(msg);
+		this.name = 'StartScriptGenError';
+	}
+}
+
 function shareKey(a: object, b: object): boolean {
 	return Object.keys(a).some((k) => Object.hasOwn(b, k));
 }
@@ -11,7 +18,9 @@ function mergeCustomOpts(
 ): tdf.TDFSerializable {
 	if (p.customProperties) {
 		if (shareKey(o, p.customProperties)) {
-			throw new Error('customProperties must have different keys then outer object');
+			throw new StartScriptGenError(
+				'customProperties must have different keys then outer object',
+			);
 		}
 		o = { ...o, ...p.customProperties };
 	}
@@ -32,7 +41,7 @@ function buildAllyTeam(numAllyTeams: number, at: AllyTeam): tdf.TDFSerializable 
 		o['NumAllies'] = at.allies.length;
 		for (let i = 0; i < at.allies.length; ++i) {
 			if (at.allies[i] < 0 || at.allies[i] >= numAllyTeams) {
-				throw new Error('Invalid ally referenced');
+				throw new StartScriptGenError('Invalid ally referenced');
 			}
 			o[`Ally${i}`] = at.allies[i];
 		}
@@ -46,7 +55,7 @@ function buildTeam(
 	team: Team,
 ): tdf.TDFSerializable {
 	if ((!team.players || team.players.length == 0) && (!team.bots || team.bots.length == 0)) {
-		throw new Error('There must be at least one player or AI in each team');
+		throw new StartScriptGenError('There must be at least one player or AI in each team');
 	}
 	const o: tdf.TDFSerializable = {
 		'AllyTeam': allyTeamIdx,
@@ -81,7 +90,7 @@ function buildPlayer(teamIdx: number | null, p: Player): tdf.TDFSerializable {
 
 function buildAI(teamIdx: number, playersMap: Map<string, number>, ai: Bot): tdf.TDFSerializable {
 	if (!playersMap.has(ai.hostUserId)) {
-		throw new Error('AI hosted by not existing player');
+		throw new StartScriptGenError('AI hosted by not existing player');
 	}
 	const o: tdf.TDFSerializable = {
 		'ShortName': ai.aiShortName,
@@ -112,7 +121,7 @@ export function scriptGameFromStartRequest(req: AutohostStartRequestData): {
 			startPosType = 3;
 			break;
 		default:
-			throw new Error('Invalid startPosType');
+			throw new StartScriptGenError('Invalid startPosType');
 	}
 	const g: tdf.TDFSerializable = {
 		'GameID': req.battleId,
@@ -147,10 +156,10 @@ export function scriptGameFromStartRequest(req: AutohostStartRequestData): {
 		.concat(req.spectators ?? []);
 	const playersMap = new Map(players.map((p, idx) => [p.userId, idx]));
 	if (players.length != playersMap.size) {
-		throw new Error('Player userIds must be unique');
+		throw new StartScriptGenError('Player userIds must be unique');
 	}
 	if (players.length != new Set(players.map((p) => p.name)).size) {
-		throw new Error('Player names must be unique');
+		throw new StartScriptGenError('Player names must be unique');
 	}
 
 	let teamIdx = 0;

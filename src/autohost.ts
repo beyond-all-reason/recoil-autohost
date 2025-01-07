@@ -16,7 +16,11 @@ import {
 	AutohostStartRequestData,
 	AutohostSubscribeUpdatesRequestData,
 } from 'tachyon-protocol/types';
-import { serializeMessagePacket, serializeCommandPacket } from './autohostInterface.js';
+import {
+	serializeMessagePacket,
+	serializeCommandPacket,
+	PacketSerializeError,
+} from './autohostInterface.js';
 import { type GamesManager } from './games.js';
 import { MultiIndex } from './multiIndex.js';
 
@@ -129,7 +133,7 @@ export class Autohost implements TachyonAutohost {
 	async kickPlayer(req: AutohostKickPlayerRequestData): Promise<void> {
 		const player = this.getPlayerName(req.battleId, req.userId);
 		const command = serializeCommandPacket('kick', [player]);
-		return this.manager.sendPacket(req.battleId, command);
+		await this.manager.sendPacket(req.battleId, command);
 	}
 
 	async mutePlayer(req: AutohostMutePlayerRequestData): Promise<void> {
@@ -139,7 +143,7 @@ export class Autohost implements TachyonAutohost {
 			boolToStr(req.chat),
 			boolToStr(req.draw),
 		]);
-		return this.manager.sendPacket(req.battleId, command);
+		await this.manager.sendPacket(req.battleId, command);
 	}
 
 	async specPlayers(req: AutohostSpecPlayersRequestData): Promise<void> {
@@ -150,13 +154,33 @@ export class Autohost implements TachyonAutohost {
 	}
 
 	async sendCommand(req: AutohostSendCommandRequestData): Promise<void> {
-		const command = serializeCommandPacket(req.command, req.arguments || []);
-		return this.manager.sendPacket(req.battleId, command);
+		try {
+			const command = serializeCommandPacket(req.command, req.arguments || []);
+			await this.manager.sendPacket(req.battleId, command);
+		} catch (err) {
+			if (err instanceof PacketSerializeError) {
+				throw new TachyonError(
+					'invalid_request',
+					`failed to serialize given command: ${err.message}`,
+				);
+			}
+			throw err;
+		}
 	}
 
 	async sendMessage(req: AutohostSendMessageRequestData): Promise<void> {
-		const message = serializeMessagePacket(req.message);
-		return this.manager.sendPacket(req.battleId, message);
+		try {
+			const message = serializeMessagePacket(req.message);
+			await this.manager.sendPacket(req.battleId, message);
+		} catch (err) {
+			if (err instanceof PacketSerializeError) {
+				throw new TachyonError(
+					'invalid_request',
+					`failed to serialize given command: ${err.message}`,
+				);
+			}
+			throw err;
+		}
 	}
 
 	async subscribeUpdates(_req: AutohostSubscribeUpdatesRequestData): Promise<void> {
