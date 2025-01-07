@@ -74,7 +74,7 @@ test('wrong oauth2 metadata', async () => {
 		};
 	};
 	await rejects(
-		() => getAccessToken(`http://localhost:${PORT}`, 'user1', 'pass1', 'tachyon.lobby'),
+		getAccessToken(`http://localhost:${PORT}`, 'user1', 'pass1', 'tachyon.lobby'),
 		/Invalid.*object/,
 	);
 });
@@ -95,7 +95,7 @@ test('propagates OAuth2 error message', async () => {
 		};
 	};
 	await rejects(
-		() => getAccessToken(`http://localhost:${PORT}`, 'user1', 'pass1', 'tachyon.lobby'),
+		getAccessToken(`http://localhost:${PORT}`, 'user1', 'pass1', 'tachyon.lobby'),
 		/invalid_scope.*Invalid scope/,
 	);
 });
@@ -116,7 +116,7 @@ test('bad access token response', async () => {
 		};
 	};
 	await rejects(
-		() => getAccessToken(`http://localhost:${PORT}`, 'user1', 'pass1', 'tachyon.lobby'),
+		getAccessToken(`http://localhost:${PORT}`, 'user1', 'pass1', 'tachyon.lobby'),
 		/expected Bearer/,
 	);
 });

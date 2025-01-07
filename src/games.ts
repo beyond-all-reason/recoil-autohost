@@ -117,7 +117,7 @@ export class GamesManager extends TypedEmitter<Events> {
 		return { ip: HOST_IP, port: ENGINE_START_PORT + portOffset };
 	}
 
-	sendPacket(battleId: string, packet: Buffer): Promise<void> {
+	async sendPacket(battleId: string, packet: Buffer): Promise<void> {
 		const game = this.games.get(battleId);
 		if (!game) throw new Error(`game ${battleId} doesn't exist`);
 		return game.engineRunner.sendPacket(packet);

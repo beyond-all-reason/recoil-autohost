@@ -126,13 +126,13 @@ export class Autohost implements TachyonAutohost {
 		}
 	}
 
-	kickPlayer(req: AutohostKickPlayerRequestData): Promise<void> {
+	async kickPlayer(req: AutohostKickPlayerRequestData): Promise<void> {
 		const player = this.getPlayerName(req.battleId, req.userId);
 		const command = serializeCommandPacket('kick', [player]);
 		return this.manager.sendPacket(req.battleId, command);
 	}
 
-	mutePlayer(req: AutohostMutePlayerRequestData): Promise<void> {
+	async mutePlayer(req: AutohostMutePlayerRequestData): Promise<void> {
 		const player = this.getPlayerName(req.battleId, req.userId);
 		const command = serializeCommandPacket('mute', [
 			player,
@@ -149,12 +149,12 @@ export class Autohost implements TachyonAutohost {
 		}
 	}
 
-	sendCommand(req: AutohostSendCommandRequestData): Promise<void> {
+	async sendCommand(req: AutohostSendCommandRequestData): Promise<void> {
 		const command = serializeCommandPacket(req.command, req.arguments || []);
 		return this.manager.sendPacket(req.battleId, command);
 	}
 
-	sendMessage(req: AutohostSendMessageRequestData): Promise<void> {
+	async sendMessage(req: AutohostSendMessageRequestData): Promise<void> {
 		const message = serializeMessagePacket(req.message);
 		return this.manager.sendPacket(req.battleId, message);
 	}

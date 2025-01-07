@@ -107,16 +107,12 @@ suite('Autohost', async () => {
 		const req2 = createStartRequest([{ name: 'user2', userId: randomUUID() }]);
 		req2.battleId = req1.battleId;
 
-		await assert.rejects(async () => {
-			await ah.start(req2);
-		});
+		await assert.rejects(ah.start(req2));
 
 		// rejects even after the previous battle is done
 		process.nextTick(() => er.close());
 		await once(gm, 'exit');
-		await assert.rejects(async () => {
-			await ah.start(req2);
-		});
+		await assert.rejects(ah.start(req2));
 	});
 
 	test('simple tachyon connect/disconnect', () => {
@@ -141,9 +137,7 @@ suite('Autohost', async () => {
 	await test('kill battle not found', async () => {
 		const gm = new GamesManager({ runEngineFn: fakeRunEngine });
 		const ah = new Autohost(gm);
-		await assert.rejects(async () => {
-			await ah.kill({ battleId: 'asdasd' });
-		}, /.*doesn't exist.*/i);
+		await assert.rejects(ah.kill({ battleId: 'asdasd' }), /.*doesn't exist.*/i);
 	});
 
 	await test('sendCommand', async () => {
@@ -160,9 +154,10 @@ suite('Autohost', async () => {
 	await test('sendCommand battle not found', async () => {
 		const gm = new GamesManager({ runEngineFn: fakeRunEngine });
 		const ah = new Autohost(gm);
-		await assert.rejects(async () => {
-			await ah.sendCommand({ battleId: 'asdasd', command: 'asd' });
-		}, /.*doesn't exist.*/i);
+		await assert.rejects(
+			ah.sendCommand({ battleId: 'asdasd', command: 'asd' }),
+			/.*doesn't exist.*/i,
+		);
 	});
 
 	await test('sendMessage', async () => {
@@ -196,12 +191,13 @@ suite('Autohost', async () => {
 		const ah = new Autohost(gm);
 		const req = createStartRequest([{ name: 'user1', userId: '10' }]);
 		await ah.start(req);
-		await assert.rejects(async () => {
-			await ah.kickPlayer({
+		await assert.rejects(
+			ah.kickPlayer({
 				battleId: req.battleId,
 				userId: '11',
-			});
-		}, /player/i);
+			}),
+			/player/i,
+		);
 	});
 
 	await test('kickPlayer not found battle', async () => {
@@ -210,12 +206,13 @@ suite('Autohost', async () => {
 		const ah = new Autohost(gm);
 		const req = createStartRequest([{ name: 'user1', userId: '10' }]);
 		await ah.start(req);
-		await assert.rejects(async () => {
-			await ah.kickPlayer({
+		await assert.rejects(
+			ah.kickPlayer({
 				battleId: 'asdasdasd',
 				userId: '10',
-			});
-		}, /battle/i);
+			}),
+			/battle/i,
+		);
 	});
 
 	await test('mutePlayer', async () => {
@@ -263,12 +260,12 @@ suite('Autohost', async () => {
 			{ name: 'user3', userId: '13' },
 		]);
 		await ah.start(req);
-		await assert.rejects(async () => {
-			await ah.specPlayers({
+		await assert.rejects(
+			ah.specPlayers({
 				battleId: req.battleId,
 				userIds: ['12', '10', '15'],
-			});
-		});
+			}),
+		);
 		assert.equal(er.sendPacket.mock.callCount(), 0);
 	});
 
@@ -313,14 +310,14 @@ suite('Autohost', async () => {
 		const ah = new Autohost(gm);
 		const req = createStartRequest([{ name: 'user1', userId: '10' }]);
 		await ah.start(req);
-		await assert.rejects(async () => {
-			await ah.addPlayer({
+		await assert.rejects(
+			ah.addPlayer({
 				battleId: req.battleId,
 				name: 'user1',
 				userId: '11',
 				password: 'pass123',
-			});
-		});
+			}),
+		);
 	});
 
 	await test('addPlayer same user id different name', async () => {
@@ -328,14 +325,14 @@ suite('Autohost', async () => {
 		const ah = new Autohost(gm);
 		const req = createStartRequest([{ name: 'user1', userId: '10' }]);
 		await ah.start(req);
-		await assert.rejects(async () => {
-			await ah.addPlayer({
+		await assert.rejects(
+			ah.addPlayer({
 				battleId: req.battleId,
 				name: 'user2',
 				userId: '10',
 				password: 'pass123',
-			});
-		});
+			}),
+		);
 	});
 
 	await test("addPlayer doesn't add if packet send fails", async () => {

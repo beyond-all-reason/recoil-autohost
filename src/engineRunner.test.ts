@@ -83,9 +83,7 @@ test('engineRunner emits error on server start', async () => {
 			return cp;
 		}) as typeof spawn,
 	});
-	await assert.rejects(async () => {
-		await events.once(er, 'start');
-	}, /test error/);
+	await assert.rejects(events.once(er, 'start'), /test error/);
 });
 
 test('engineRunner spawns process correctly', async () => {
@@ -165,9 +163,7 @@ test('engineRunner full run simulated engine', async () => {
 		s.close();
 	}
 
-	assert.rejects(async () => {
-		await er.sendPacket(Buffer.from('asd'));
-	}, /not running/);
+	assert.rejects(er.sendPacket(Buffer.from('asd')), /not running/);
 
 	er.on('packet', async (packet) => {
 		await er.sendPacket(Buffer.from(`test${packet.type}`));
