@@ -272,16 +272,35 @@ if (import.meta.filename == process.argv[1]) {
 	});
 
 	const connections = new Map<number, TachyonClientConnection>();
+
+	// We will manage connection ids in a way that we always try to allocate
+	// lowest number. This makes the id stable for the common case of autohost
+	// that is connecting and disconnecting in a loop.
 	let connIdx = 0;
+	const connIdxFreeList: number[] = [];
+
+	function getConnIdx(): number {
+		if (connIdxFreeList.length > 0) {
+			return connIdxFreeList.pop()!;
+		} else {
+			return connIdx++;
+		}
+	}
+
+	function freeConnIdx(connIdx: number) {
+		connIdxFreeList.push(connIdx);
+		connIdxFreeList.sort((a, b) => b - a);
+	}
 
 	srv.on('connection', (conn) => {
-		const connId = connIdx++;
+		const connId = getConnIdx();
 		const l = logger.child({ connId });
 		connections.set(connId, conn);
 		l.info('new connection');
 
 		conn.on('close', () => {
 			connections.delete(connId);
+			freeConnIdx(connId);
 			l.info('connection closed');
 		});
 
