@@ -97,7 +97,7 @@ export class Autohost implements TachyonAutohost {
 		if (!players) {
 			throw new TachyonError('invalid_request', `Battle not found`);
 		}
-		let playerId = players.get('userId', req.userId);
+		const playerId = players.get('userId', req.userId);
 		if (playerId && playerId.name != req.name) {
 			throw new TachyonError('invalid_request', `userId and name don't match`);
 		}
@@ -106,21 +106,22 @@ export class Autohost implements TachyonAutohost {
 		}
 		const args = [req.name, req.password];
 		if (!playerId) {
-			playerId = {
+			players.set({
 				name: req.name,
 				userId: req.userId,
 				playerNumber: players.size,
-			};
-			players.set(playerId);
+			});
 			args.push(boolToStr(true));
 		}
 		const command = serializeCommandPacket('adduser', args);
 		try {
 			await this.manager.sendPacket(req.battleId, command);
 		} catch (err) {
-			// TODO: if sending of the packet fails, the player number mapping might
-			// get incorrect, maybe handle it somehow.
 			this.logger.warn(err, 'failing to send adduser, it might cause playerNumber desync');
+			// If it was new player, drop him.
+			if (!playerId) {
+				players.delete('userId', req.userId);
+			}
 			throw err;
 		}
 	}

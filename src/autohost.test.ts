@@ -337,4 +337,30 @@ suite('Autohost', async () => {
 			});
 		});
 	});
+
+	await test("addPlayer doesn't add if packet send fails", async () => {
+		const er = new EngineRunnerFake();
+		const gm = new GamesManager({ runEngineFn: () => er });
+		const ah = new Autohost(gm);
+		const req = createStartRequest([{ name: 'user1', userId: randomUUID() }]);
+		await ah.start(req);
+		er.sendPacket.mock.mockImplementationOnce(async () => {
+			throw new Error('failed');
+		});
+		await assert.rejects(
+			ah.addPlayer({
+				battleId: req.battleId,
+				name: 'user2',
+				userId: '10',
+				password: 'pass123',
+			}),
+		);
+		await ah.addPlayer({
+			battleId: req.battleId,
+			name: 'user2',
+			userId: '11', // Different userId then above, if above was added this will fail
+			password: 'pass123',
+		});
+		assert.equal(er.sendPacket.mock.callCount(), 2);
+	});
 });
