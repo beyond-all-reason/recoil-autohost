@@ -1,7 +1,7 @@
 import { type Logger, pino } from 'pino';
 import type { AutohostStartRequestData } from 'tachyon-protocol/types';
 import { runEngine, type EngineRunner } from './engineRunner.js';
-import { type Event, EventType } from './autohostInterface.js';
+import { type Event, EventType } from './engineAutohostInterface.js';
 import { TypedEmitter } from 'tiny-typed-emitter';
 import { TachyonError } from './tachyonTypes.js';
 import events from 'node:events';

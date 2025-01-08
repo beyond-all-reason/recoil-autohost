@@ -13,7 +13,7 @@ import {
 	PacketSerializeError,
 	serializeMessagePacket,
 	serializeCommandPacket,
-} from './autohostInterface.js';
+} from './engineAutohostInterface.js';
 
 test('parse SERVER_STARTED', () => {
 	const event = parsePacket(Buffer.from('00', 'hex'));

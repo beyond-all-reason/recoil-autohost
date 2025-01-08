@@ -20,7 +20,7 @@ import {
 	serializeMessagePacket,
 	serializeCommandPacket,
 	PacketSerializeError,
-} from './autohostInterface.js';
+} from './engineAutohostInterface.js';
 import { type GamesManager } from './games.js';
 import { MultiIndex } from './multiIndex.js';
 
