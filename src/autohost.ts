@@ -68,9 +68,13 @@ export class Autohost implements TachyonAutohost {
 		private manager: GamesManager,
 		opts?: { logger?: Logger },
 	) {
-		this.manager.on('exit', (battleId) => this.battlePlayers.delete(battleId));
 		const parentLogger = (opts || {}).logger ?? pino();
 		this.logger = parentLogger.child({ class: 'Autohost' });
+
+		this.manager.on('exit', (battleId) => this.battlePlayers.delete(battleId));
+		this.manager.on('capacity', (newCapacity) => {
+			if (this.server) this.server.status(newCapacity).catch(() => null);
+		});
 	}
 
 	async start(req: AutohostStartRequestData): Promise<AutohostStartOkResponseData> {
@@ -189,7 +193,7 @@ export class Autohost implements TachyonAutohost {
 
 	connected(server: TachyonServer): void {
 		this.server = server;
-		server.status({ currentBattles: 0, maxBattles: 10 }).catch(() => null);
+		server.status(this.manager.getCapacity()).catch(() => null);
 	}
 
 	disconnected(): void {

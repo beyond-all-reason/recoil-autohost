@@ -21,6 +21,11 @@ interface Game {
 	logger: Logger;
 }
 
+interface GamesCapacity {
+	currentBattles: number;
+	maxBattles: number;
+}
+
 /**
  * Events emitted by the GamesManager
  */
@@ -33,6 +38,9 @@ interface Events {
 
 	// Emitted when the engine has exited, only if it was started before.
 	exit: (battleId: string) => void;
+
+	// Emitted when server capacity changes.
+	capacity: (capacity: GamesCapacity) => void;
 }
 
 /**
@@ -46,6 +54,7 @@ export class GamesManager extends TypedEmitter<Events> {
 	private lastPortOffset: number = 0;
 	private runEngine: typeof runEngine;
 	private logger: Logger;
+	private capacity: GamesCapacity;
 
 	/**
 	 * @param opts Optional, runEngineFn is for tests.
@@ -56,6 +65,10 @@ export class GamesManager extends TypedEmitter<Events> {
 		this.runEngine = o.runEngineFn ?? runEngine;
 		const parentLogger = o.logger ?? pino();
 		this.logger = parentLogger.child({ class: 'GamesManager' });
+		this.capacity = {
+			currentBattles: 0,
+			maxBattles: MAX_GAMES,
+		};
 	}
 
 	private findFreePortOffset(): number {
@@ -106,7 +119,11 @@ export class GamesManager extends TypedEmitter<Events> {
 			game.logger.info('battle exited');
 			this.games.delete(game.battleId);
 			this.usedPortOffset.delete(game.portOffset);
-			if (game.started) this.emit('exit', game.battleId);
+			if (game.started) {
+				this.emit('exit', game.battleId);
+				this.capacity.currentBattles -= 1;
+				this.emit('capacity', this.getCapacity());
+			}
 		});
 
 		er.on('packet', (packet) => {
@@ -118,6 +135,10 @@ export class GamesManager extends TypedEmitter<Events> {
 
 		await events.once(er, 'start');
 		game.started = true;
+		this.capacity.currentBattles += 1;
+		process.nextTick(() => {
+			this.emit('capacity', this.getCapacity());
+		});
 		return { ip: HOST_IP, port: ENGINE_START_PORT + portOffset };
 	}
 
@@ -131,5 +152,9 @@ export class GamesManager extends TypedEmitter<Events> {
 		const game = this.games.get(battleId);
 		if (!game) throw new TachyonError('invalid_request', `game ${battleId} doesn't exist`);
 		game.engineRunner.close();
+	}
+
+	getCapacity(): GamesCapacity {
+		return { ...this.capacity };
 	}
 }

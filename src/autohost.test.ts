@@ -5,7 +5,7 @@ import { once } from 'node:events';
 import { GamesManager } from './games.js';
 import { Autohost, _getPlayerIds } from './autohost.js';
 import { fakeRunEngine, EngineRunnerFake } from './engineRunner.fake.js';
-import { AutohostStartRequestData } from 'tachyon-protocol/types';
+import { AutohostStartRequestData, AutohostStatusEventData } from 'tachyon-protocol/types';
 import { scriptGameFromStartRequest } from './startScriptGen.js';
 
 function createStartRequest(players: { name: string; userId: string }[]): AutohostStartRequestData {
@@ -123,6 +123,45 @@ suite('Autohost', async () => {
 		ah.connected(ts);
 		assert.equal(ts.status.mock.callCount(), 1);
 		ah.disconnected();
+	});
+
+	await test('tachyon status updates', async () => {
+		const ers: EngineRunnerFake[] = [];
+		const gm = new GamesManager({
+			runEngineFn: () => {
+				const er = new EngineRunnerFake();
+				ers.push(er);
+				return er;
+			},
+		});
+		const ah = new Autohost(gm);
+		const ts = {
+			update: async () => {},
+			status: mock.fn(async (_status: AutohostStatusEventData) => {}),
+		};
+		ah.connected(ts);
+		assert.equal(ts.status.mock.callCount(), 1);
+		assert.equal(ts.status.mock.calls[0].arguments[0].currentBattles, 0);
+		ts.status.mock.resetCalls();
+
+		const { promise, resolve } = Promise.withResolvers();
+		let callsLeft = 4;
+		ts.status.mock.mockImplementation(async (_status: AutohostStatusEventData) => {
+			if (--callsLeft == 0) {
+				resolve(undefined);
+			}
+		});
+		await ah.start(createStartRequest([{ name: 'user1', userId: randomUUID() }]));
+		await ah.start(createStartRequest([{ name: 'user1', userId: randomUUID() }]));
+		ers[0].close();
+		ers[1].close();
+		await promise;
+
+		assert.equal(ts.status.mock.callCount(), 4);
+		assert.deepEqual(
+			[0, 1, 2, 3].map((n) => ts.status.mock.calls[n].arguments[0].currentBattles),
+			[1, 2, 1, 0],
+		);
 	});
 
 	await test('kill', async () => {
