@@ -3,10 +3,44 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import { GamesManager } from './games.js';
-import { Autohost, _getPlayerIds } from './autohost.js';
+import { Autohost, _getPlayerIds, engineEventToTachyonUpdate } from './autohost.js';
 import { fakeRunEngine, EngineRunnerFake } from './engineRunner.fake.js';
-import { AutohostStartRequestData, AutohostStatusEventData } from 'tachyon-protocol/types';
+import {
+	AutohostStartRequestData,
+	AutohostStatusEventData,
+	StartUpdate,
+	FinishedUpdate,
+	EngineMessageUpdate,
+	EngineWarningUpdate,
+	EngineQuitUpdate,
+	PlayerJoinedUpdate,
+	PlayerLeftUpdate,
+	PlayerChatUpdate,
+	PlayerDefeatedUpdate,
+	LuaMsgUpdate,
+} from 'tachyon-protocol/types';
 import { scriptGameFromStartRequest } from './startScriptGen.js';
+import {
+	EvServerStarted,
+	EvServerQuit,
+	EvServerStartPlaying,
+	EvServerGameOver,
+	EvServerMessage,
+	EvServerWarning,
+	EvPlayerJoined,
+	EvPlayerLeft,
+	EvPlayerReady,
+	EvPlayerChat,
+	EvPlayerDefeated,
+	EvGameLuaMsg,
+	EvGameTeamStat,
+	EventType,
+	ReadyState,
+	LeaveReason,
+	ChatDestination,
+	LuaMsgScript,
+	LuaMsgUIMode,
+} from './engineAutohostInterface.js';
 
 function createStartRequest(players: { name: string; userId: string }[]): AutohostStartRequestData {
 	return {
@@ -404,5 +438,184 @@ suite('Autohost', async () => {
 			password: 'pass123',
 		});
 		assert.equal(er.sendPacket.mock.callCount(), 2);
+	});
+});
+
+suite('engine event to tachyon event translation', async () => {
+	function toUserId(playerNumber: number): string {
+		return `id:${playerNumber}`;
+	}
+
+	test('SERVER_STARTED event', () => {
+		const ev: EvServerStarted = {
+			type: EventType.SERVER_STARTED,
+		};
+		assert.deepEqual(engineEventToTachyonUpdate(ev, toUserId), null);
+	});
+
+	test('SERVER_QUIT event', () => {
+		const ev: EvServerQuit = {
+			type: EventType.SERVER_QUIT,
+		};
+		const expected: EngineQuitUpdate = {
+			type: 'engine_quit',
+		};
+		assert.deepEqual(engineEventToTachyonUpdate(ev, toUserId), expected);
+	});
+
+	test('SERVER_STARTPLAYING event', () => {
+		const ev: EvServerStartPlaying = {
+			type: EventType.SERVER_STARTPLAYING,
+			gameId: 'asd',
+			demoPath: 'asd2',
+		};
+		const expected: StartUpdate = {
+			type: 'start',
+		};
+		assert.deepEqual(engineEventToTachyonUpdate(ev, toUserId), expected);
+	});
+
+	test('SERVER_GAMEOVER event', () => {
+		const ev: EvServerGameOver = {
+			type: EventType.SERVER_GAMEOVER,
+			player: 0,
+			winningAllyTeams: [0],
+		};
+		const expected: FinishedUpdate = {
+			type: 'finished',
+			userId: 'id:0',
+			winningAllyTeams: [0],
+		};
+		assert.deepEqual(engineEventToTachyonUpdate(ev, toUserId), expected);
+	});
+
+	test('SERVER_MESSAGE event', () => {
+		const ev: EvServerMessage = {
+			type: EventType.SERVER_MESSAGE,
+			message: 'some message',
+		};
+		const expected: EngineMessageUpdate = {
+			type: 'engine_message',
+			message: 'some message',
+		};
+		assert.deepEqual(engineEventToTachyonUpdate(ev, toUserId), expected);
+	});
+
+	test('SERVER_WARNING event', () => {
+		const ev: EvServerWarning = {
+			type: EventType.SERVER_WARNING,
+			message: 'warning',
+		};
+		const expected: EngineWarningUpdate = {
+			type: 'engine_warning',
+			message: 'warning',
+		};
+		assert.deepEqual(engineEventToTachyonUpdate(ev, toUserId), expected);
+	});
+
+	test('PLAYER_JOINED event', () => {
+		const ev: EvPlayerJoined = {
+			type: EventType.PLAYER_JOINED,
+			player: 1,
+			name: 'john',
+		};
+		const expected: PlayerJoinedUpdate = {
+			type: 'player_joined',
+			userId: 'id:1',
+			playerNumber: 1,
+		};
+		assert.deepEqual(engineEventToTachyonUpdate(ev, toUserId), expected);
+	});
+
+	test('PLAYER_LEFT event', () => {
+		const ev: EvPlayerLeft = {
+			type: EventType.PLAYER_LEFT,
+			player: 3,
+			reason: LeaveReason.KICKED,
+		};
+		const expected: PlayerLeftUpdate = {
+			type: 'player_left',
+			userId: 'id:3',
+			reason: 'kicked',
+		};
+		assert.deepEqual(engineEventToTachyonUpdate(ev, toUserId), expected);
+	});
+
+	test('PLAYER_READY event', () => {
+		const ev: EvPlayerReady = {
+			type: EventType.PLAYER_READY,
+			player: 0,
+			state: ReadyState.NOT_READY,
+		};
+		assert.deepEqual(engineEventToTachyonUpdate(ev, toUserId), null);
+	});
+
+	test('PLAYER_CHAT event', () => {
+		const ev1: EvPlayerChat = {
+			type: EventType.PLAYER_CHAT,
+			message: 'lool',
+			fromPlayer: 10,
+			destination: ChatDestination.TO_ALLIES,
+		};
+		const expected1: PlayerChatUpdate = {
+			type: 'player_chat',
+			message: 'lool',
+			userId: 'id:10',
+			destination: 'allies',
+		};
+		assert.deepEqual(engineEventToTachyonUpdate(ev1, toUserId), expected1);
+
+		const ev2: EvPlayerChat = {
+			type: EventType.PLAYER_CHAT,
+			message: 'lool',
+			fromPlayer: 10,
+			toPlayer: 11,
+			destination: ChatDestination.TO_PLAYER,
+		};
+		const expected2: PlayerChatUpdate = {
+			type: 'player_chat',
+			message: 'lool',
+			userId: 'id:10',
+			toUserId: 'id:11',
+			destination: 'player',
+		};
+		assert.deepEqual(engineEventToTachyonUpdate(ev2, toUserId), expected2);
+	});
+
+	test('PLAYER_DEFEATED event', () => {
+		const ev: EvPlayerDefeated = {
+			type: EventType.PLAYER_DEFEATED,
+			player: 1,
+		};
+		const expected: PlayerDefeatedUpdate = {
+			type: 'player_defeated',
+			userId: 'id:1',
+		};
+		assert.deepEqual(engineEventToTachyonUpdate(ev, toUserId), expected);
+	});
+
+	test('GAME_LUAMSG event', () => {
+		const ev: EvGameLuaMsg = {
+			type: EventType.GAME_LUAMSG,
+			player: 2,
+			script: LuaMsgScript.UI,
+			uiMode: LuaMsgUIMode.ALL,
+			data: Buffer.from('2983X7RNMQ74'),
+		};
+		const expected: LuaMsgUpdate = {
+			type: 'luamsg',
+			userId: 'id:2',
+			script: 'ui',
+			uiMode: 'all',
+			data: Buffer.from('2983X7RNMQ74').toString('base64'),
+		};
+		assert.deepEqual(engineEventToTachyonUpdate(ev, toUserId), expected);
+	});
+
+	test('GAME_TEAMSTAT event', () => {
+		const ev = {
+			type: EventType.GAME_TEAMSTAT,
+		} as EvGameTeamStat; // Yep, putting all in yet as we expect null anyway.
+		assert.deepEqual(engineEventToTachyonUpdate(ev, toUserId), null);
 	});
 });

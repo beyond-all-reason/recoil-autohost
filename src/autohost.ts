@@ -15,11 +15,21 @@ import {
 	AutohostStartOkResponseData,
 	AutohostStartRequestData,
 	AutohostSubscribeUpdatesRequestData,
+	AutohostUpdateEventData,
+	PlayerLeftUpdate,
+	PlayerChatUpdate,
+	LuaMsgUpdate,
 } from 'tachyon-protocol/types';
 import {
 	serializeMessagePacket,
 	serializeCommandPacket,
 	PacketSerializeError,
+	type Event,
+	EventType,
+	LeaveReason,
+	ChatDestination,
+	LuaMsgUIMode,
+	LuaMsgScript,
 } from './engineAutohostInterface.js';
 import { type GamesManager } from './games.js';
 import { MultiIndex } from './multiIndex.js';
@@ -210,5 +220,134 @@ export class Autohost implements TachyonAutohost {
 			throw new TachyonError('invalid_request', `Player not in battle`);
 		}
 		return playerId.name;
+	}
+}
+
+function toTachyonLeaveReason(reason: LeaveReason): PlayerLeftUpdate['reason'] {
+	switch (reason) {
+		case LeaveReason.KICKED:
+			return 'kicked';
+		case LeaveReason.LEFT:
+			return 'left';
+		case LeaveReason.LOST_CONNECTION:
+			return 'lost_connection';
+	}
+}
+
+function toTachyonDestination(destination: ChatDestination): PlayerChatUpdate['destination'] {
+	switch (destination) {
+		case ChatDestination.TO_PLAYER:
+			return 'player';
+		case ChatDestination.TO_ALLIES:
+			return 'allies';
+		case ChatDestination.TO_EVERYONE:
+			return 'all';
+		case ChatDestination.TO_SPECTATORS:
+			return 'spectators';
+	}
+}
+
+function toTachyonLuaMsgScript(script: LuaMsgScript): LuaMsgUpdate['script'] {
+	switch (script) {
+		case LuaMsgScript.GAIA:
+			return 'game';
+		case LuaMsgScript.RULES:
+			return 'rules';
+		case LuaMsgScript.UI:
+			return 'ui';
+	}
+}
+
+function toTachyonLuaMsgUIMode(uiMode?: LuaMsgUIMode): LuaMsgUpdate['uiMode'] {
+	switch (uiMode) {
+		case undefined:
+			return undefined;
+		case LuaMsgUIMode.ALL:
+			return 'all';
+		case LuaMsgUIMode.ALLIES:
+			return 'allies';
+		case LuaMsgUIMode.SPECTATORS:
+			return 'spectators';
+	}
+}
+
+/**
+ * Convert the engine event to tachyon event update data.
+ *
+ * @param ev Event
+ * @param toUserId Function to map from player number in game to userId
+ * @returns Tachyon update data
+ */
+export function engineEventToTachyonUpdate(
+	ev: Event,
+	toUserId: (playerNumber: number) => string,
+): AutohostUpdateEventData['update'] | null {
+	switch (ev.type) {
+		case EventType.GAME_LUAMSG:
+			return {
+				type: 'luamsg',
+				userId: toUserId(ev.player),
+				script: toTachyonLuaMsgScript(ev.script),
+				uiMode: toTachyonLuaMsgUIMode(ev.uiMode),
+				data: ev.data.toString('base64'),
+			};
+		case EventType.PLAYER_CHAT: {
+			const destination = toTachyonDestination(ev.destination);
+			if (destination === 'player') {
+				return {
+					type: 'player_chat',
+					userId: toUserId(ev.fromPlayer),
+					destination,
+					message: ev.message,
+					toUserId: toUserId(ev.toPlayer!),
+				};
+			} else {
+				return {
+					type: 'player_chat',
+					userId: toUserId(ev.fromPlayer),
+					destination,
+					message: ev.message,
+				};
+			}
+		}
+		case EventType.PLAYER_DEFEATED:
+			return {
+				type: 'player_defeated',
+				userId: toUserId(ev.player),
+			};
+		case EventType.PLAYER_JOINED: {
+			return {
+				type: 'player_joined',
+				userId: toUserId(ev.player),
+				playerNumber: ev.player,
+			};
+		}
+		case EventType.PLAYER_LEFT:
+			return {
+				type: 'player_left',
+				userId: toUserId(ev.player),
+				reason: toTachyonLeaveReason(ev.reason),
+			};
+		case EventType.SERVER_GAMEOVER:
+			if (ev.winningAllyTeams.length < 1) {
+				throw new Error('winning ally teams must be at least 1');
+			}
+			return {
+				type: 'finished',
+				userId: toUserId(ev.player),
+				winningAllyTeams: ev.winningAllyTeams as [number, ...number[]],
+			};
+		case EventType.SERVER_MESSAGE:
+			return { type: 'engine_message', message: ev.message };
+		case EventType.SERVER_STARTPLAYING:
+			return { type: 'start' };
+		case EventType.SERVER_WARNING:
+			return { type: 'engine_warning', message: ev.message };
+		case EventType.SERVER_QUIT:
+			return { type: 'engine_quit' };
+		case EventType.SERVER_STARTED: // The return of start call indicates that server started, Tachyon doens't have this message.
+		case EventType.GAME_TEAMSTAT: // At the moment Tachyon lacks definition of this message.
+		case EventType.PLAYER_READY: // In my testing, it didn't behave as expected. Tachyon lacks definition for this message.
+			return null;
 	}
 }
