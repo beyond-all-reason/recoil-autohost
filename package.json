@@ -22,6 +22,7 @@
     "node": "^22"
   },
   "dependencies": {
+    "@js-sdsl/deque": "^4.4.2",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
     "pino": "^9.6.0",
