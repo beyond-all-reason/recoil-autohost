@@ -144,12 +144,17 @@ export class EventsBuffer<T> {
 
 	private maybeDropOlderThen(after: number) {
 		if (after > this.lastDropTime + this.droppingFrequency) {
-			const pos = binarySearch(
-				0,
-				this.events.length,
-				(n) => this.events.getElementByPos(n).time <= after,
-			);
-			this.events.cut(pos - 1); // Looking at current implementation, it's O(1)
+			let pos =
+				binarySearch(
+					0,
+					this.events.length,
+					(n) => this.events.getElementByPos(n).time <= after,
+				) - 1;
+			// Don't drop events not processed by pusher yet.
+			if (this.pusherRunning) {
+				pos = Math.max(pos, this.pusherEventsIdx);
+			}
+			this.events.cut(pos); // Looking at current implementation, it's O(1)
 			this.lastDropTime = after;
 		}
 	}

@@ -171,4 +171,30 @@ suite('EventsBuffer', async () => {
 		assert.deepEqual(cb.mock.calls[0].arguments, [1001, 'd']);
 		assert.deepEqual(cb.mock.calls[1].arguments, [2000, 'e']);
 	});
+
+	await test('slow subscriber blocks deletion', async (t) => {
+		t.mock.timers.enable({ apis: ['Date'] });
+		const maxAge = 1; // basically remove instantly
+		const eb: EventsBuffer<string> = new EventsBuffer(maxAge);
+		const { promise, resolve } = Promise.withResolvers();
+		let eventsLeft = 3;
+		const cb = t.mock.fn(async (_t: number, _e: string) => {
+			if (--eventsLeft == 0) resolve(undefined);
+		});
+		eb.subscribe(0, cb);
+
+		t.mock.timers.tick(1);
+		eb.push('a');
+		t.mock.timers.tick(1);
+		eb.push('b');
+		eb.push('c');
+		await promise;
+
+		assert.equal(cb.mock.callCount(), 3);
+		assert.deepEqual(cb.mock.calls[0].arguments, [1000, 'a']);
+		assert.deepEqual(cb.mock.calls[1].arguments, [2000, 'b']);
+		assert.deepEqual(cb.mock.calls[2].arguments, [2001, 'c']);
+
+		eb.unsubscribe();
+	});
 });
