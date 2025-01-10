@@ -33,6 +33,7 @@ import {
 } from './engineAutohostInterface.js';
 import { type GamesManager } from './games.js';
 import { MultiIndex } from './multiIndex.js';
+import { EventsBuffer, EventsBufferError } from './eventsBuffer.js';
 
 // Engine commands compatible bool to str conversion.
 function boolToStr(b: boolean): string {
@@ -70,8 +71,16 @@ export function _getPlayerIds(req: AutohostStartRequestData): PlayerIds[] {
  */
 export class Autohost implements TachyonAutohost {
 	private server?: TachyonServer;
-	// battleId -> (userId <-> playerNumber <-> name)
+	// battleId -> (userId <-> playerNumber <-> name).
 	private battlePlayers: Map<string, MultiIndex<PlayerIds>> = new Map();
+	// finishedBattles represents battles for which we have already published `engine_quit`
+	// or `engine_crash` updates but we didn't get the `exit` event for yet. This is to make
+	// sure we are only publishing a single event of this type.
+	private finishedBattles: Set<string> = new Set();
+	private eventsBuffer: EventsBuffer<{
+		battleId: string;
+		update: AutohostUpdateEventData['update'];
+	}> = new EventsBuffer(10 * 60 * 1000 * 1000); // TODO: currently 10 minutes, make configurable
 	public logger: Logger;
 
 	constructor(
@@ -81,10 +90,32 @@ export class Autohost implements TachyonAutohost {
 		const parentLogger = (opts || {}).logger ?? pino();
 		this.logger = parentLogger.child({ class: 'Autohost' });
 
-		this.manager.on('exit', (battleId) => this.battlePlayers.delete(battleId));
+		this.manager.on('error', (battleId, err) => {
+			if (!this.finishedBattles.has(battleId)) {
+				this.eventsBuffer.push({
+					battleId,
+					update: { type: 'engine_crash', details: err.message },
+				});
+				this.finishedBattles.add(battleId);
+			}
+		});
+
+		this.manager.on('exit', (battleId) => {
+			this.battlePlayers.delete(battleId);
+			if (!this.finishedBattles.has(battleId)) {
+				this.logger.warn(
+					{ battleId },
+					'engine exited normally but no SERVER_QUIT was received',
+				);
+				this.eventsBuffer.push({ battleId, update: { type: 'engine_quit' } });
+			} else {
+				this.finishedBattles.delete(battleId);
+			}
+		});
 		this.manager.on('capacity', (newCapacity) => {
 			if (this.server) this.server.status(newCapacity).catch(() => null);
 		});
+		this.manager.on('packet', (battleId, ev) => this.handlePacket(battleId, ev));
 	}
 
 	async start(req: AutohostStartRequestData): Promise<AutohostStartOkResponseData> {
@@ -197,8 +228,21 @@ export class Autohost implements TachyonAutohost {
 		}
 	}
 
-	async subscribeUpdates(_req: AutohostSubscribeUpdatesRequestData): Promise<void> {
-		throw new TachyonError('command_unimplemented', 'subscribeUpdates not implemented');
+	async subscribeUpdates(req: AutohostSubscribeUpdatesRequestData): Promise<void> {
+		try {
+			this.eventsBuffer.subscribe(req.since, async (time, ev) => {
+				try {
+					if (this.server) await this.server.update({ time, ...ev });
+				} catch {
+					// ignore
+				}
+			});
+		} catch (err) {
+			if (err instanceof EventsBufferError) {
+				throw new TachyonError('invalid_request', err.message);
+			}
+			throw err;
+		}
 	}
 
 	connected(server: TachyonServer): void {
@@ -208,6 +252,7 @@ export class Autohost implements TachyonAutohost {
 
 	disconnected(): void {
 		this.server = undefined;
+		this.eventsBuffer.unsubscribe();
 	}
 
 	private getPlayerName(battleId: string, userId: string): string {
@@ -220,6 +265,31 @@ export class Autohost implements TachyonAutohost {
 			throw new TachyonError('invalid_request', `Player not in battle`);
 		}
 		return playerId.name;
+	}
+
+	private handlePacket(battleId: string, ev: Event) {
+		try {
+			const update = engineEventToTachyonUpdate(ev, (playerNumber) => {
+				const userId = this.battlePlayers
+					.get(battleId)
+					?.get('playerNumber', playerNumber)?.userId;
+				if (!userId) {
+					throw new Error('failed to resolve player');
+				}
+				return userId;
+			});
+			if (update) {
+				if (update.type == 'engine_quit') {
+					this.finishedBattles.add(battleId);
+				}
+				this.eventsBuffer.push({ battleId, update });
+			}
+		} catch (err) {
+			this.logger.error(
+				{ battleId, ev, err },
+				'failed to convert engine event to tachyon event',
+			);
+		}
 	}
 }
 

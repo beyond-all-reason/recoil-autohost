@@ -18,6 +18,7 @@ import {
 	PlayerChatUpdate,
 	PlayerDefeatedUpdate,
 	LuaMsgUpdate,
+	AutohostUpdateEventData,
 } from 'tachyon-protocol/types';
 import { scriptGameFromStartRequest } from './startScriptGen.js';
 import {
@@ -438,6 +439,85 @@ suite('Autohost', async () => {
 			password: 'pass123',
 		});
 		assert.equal(er.sendPacket.mock.callCount(), 2);
+	});
+
+	await test('subscribeUpdates', async (t) => {
+		const er = new EngineRunnerFake();
+		const gm = new GamesManager({ runEngineFn: () => er });
+		const ah = new Autohost(gm);
+		const ts = {
+			update: mock.fn(async (_u: AutohostUpdateEventData) => {}),
+			status: async () => {},
+		};
+		ah.connected(ts);
+		const player0Id = randomUUID();
+		const req = createStartRequest([{ name: 'user1', userId: player0Id }]);
+		await ah.start(req);
+
+		t.mock.timers.enable({ apis: ['Date'] });
+		t.mock.timers.setTime(1000);
+		er.emit('packet', {
+			type: EventType.SERVER_MESSAGE,
+			message: 'some message',
+		});
+		t.mock.timers.tick(1);
+		er.emit('packet', {
+			type: EventType.SERVER_MESSAGE,
+			message: 'some message2',
+		});
+
+		const { promise, resolve } = Promise.withResolvers();
+		let eventsLeft = 3;
+		ts.update.mock.mockImplementation(async () => {
+			if (--eventsLeft == 0) {
+				resolve(undefined);
+			}
+		});
+
+		await ah.subscribeUpdates({ since: 1000000 });
+
+		t.mock.timers.tick(1);
+		er.emit('packet', {
+			type: EventType.PLAYER_CHAT,
+			fromPlayer: 0,
+			destination: ChatDestination.TO_EVERYONE,
+			message: 'test',
+		});
+		t.mock.timers.tick(1);
+		er.emit('packet', {
+			type: EventType.SERVER_QUIT,
+		});
+
+		await promise;
+
+		assert.equal(ts.update.mock.callCount(), 3);
+		assert.deepEqual(ts.update.mock.calls[0].arguments[0], {
+			time: 1001000,
+			battleId: req.battleId,
+			update: {
+				type: 'engine_message',
+				message: 'some message2',
+			},
+		});
+		assert.deepEqual(ts.update.mock.calls[1].arguments[0], {
+			time: 1002000,
+			battleId: req.battleId,
+			update: {
+				type: 'player_chat',
+				userId: player0Id,
+				destination: 'all',
+				message: 'test',
+			},
+		});
+		assert.deepEqual(ts.update.mock.calls[2].arguments[0], {
+			time: 1003000,
+			battleId: req.battleId,
+			update: {
+				type: 'engine_quit',
+			},
+		});
+
+		ah.disconnected();
 	});
 });
 
