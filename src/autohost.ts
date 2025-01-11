@@ -2,7 +2,6 @@
  * The core module providing a translation between tachyon-land and engine-land.
  * See Autohost class for more details.
  */
-import { type Logger, pino } from 'pino';
 import { TachyonAutohost, TachyonError, TachyonServer } from './tachyonTypes.js';
 import {
 	AutohostAddPlayerRequestData,
@@ -31,9 +30,10 @@ import {
 	LuaMsgUIMode,
 	LuaMsgScript,
 } from './engineAutohostInterface.js';
-import { type GamesManager } from './games.js';
+import type { GamesManager } from './games.js';
 import { MultiIndex } from './multiIndex.js';
 import { EventsBuffer, EventsBufferError } from './eventsBuffer.js';
+import { Environment } from './environment.js';
 
 // Engine commands compatible bool to str conversion.
 function boolToStr(b: boolean): string {
@@ -58,6 +58,12 @@ export function _getPlayerIds(req: AutohostStartRequestData): PlayerIds[] {
 		.map(({ userId, name }, playerNumber) => ({ userId, name, playerNumber }));
 }
 
+interface Config {
+	maxUpdatesSubscriptionAgeSeconds: number;
+}
+
+export type Env = Environment<Config>;
+
 /**
  * Autohost implements the functionality as required by tachyon protocol and uses
  * GamesManager to spin up new instances.
@@ -80,15 +86,17 @@ export class Autohost implements TachyonAutohost {
 	private eventsBuffer: EventsBuffer<{
 		battleId: string;
 		update: AutohostUpdateEventData['update'];
-	}> = new EventsBuffer(10 * 60 * 1000 * 1000); // TODO: currently 10 minutes, make configurable
-	public logger: Logger;
+	}>;
+	public logger: Env['logger'];
 
 	constructor(
+		env: Env,
 		private manager: GamesManager,
-		opts?: { logger?: Logger },
 	) {
-		const parentLogger = (opts || {}).logger ?? pino();
-		this.logger = parentLogger.child({ class: 'Autohost' });
+		this.logger = env.logger;
+		this.eventsBuffer = new EventsBuffer(
+			env.config.maxUpdatesSubscriptionAgeSeconds * 1000 * 1000,
+		);
 
 		this.manager.on('error', (battleId, err) => {
 			if (!this.finishedBattles.has(battleId)) {
@@ -247,7 +255,7 @@ export class Autohost implements TachyonAutohost {
 
 	connected(server: TachyonServer): void {
 		this.server = server;
-		server.status(this.manager.getCapacity()).catch(() => null);
+		server.status(this.manager.capacity).catch(() => null);
 	}
 
 	disconnected(): void {

@@ -1,24 +1,17 @@
-import { type Logger, pino } from 'pino';
+import type { Environment } from './environment.js';
 import type { AutohostStartRequestData } from 'tachyon-protocol/types';
-import { runEngine, type EngineRunner } from './engineRunner.js';
+import { runEngine, type EngineRunner, type Env as EngineRunnerEnv } from './engineRunner.js';
 import { type Event, EventType } from './engineAutohostInterface.js';
 import { TypedEmitter } from 'tiny-typed-emitter';
 import { TachyonError } from './tachyonTypes.js';
 import events from 'node:events';
-
-// TODO: make this properly configurable
-const ENGINE_START_PORT = 20000;
-const AUTOHOST_START_PORT = 22000;
-const MAX_PORTS = 1000;
-const MAX_GAMES = 50;
-const HOST_IP = '127.0.0.1';
 
 interface Game {
 	battleId: string;
 	engineRunner: EngineRunner;
 	portOffset: number;
 	started: boolean;
-	logger: Logger;
+	logger: Environment['logger'];
 }
 
 interface GamesCapacity {
@@ -43,37 +36,44 @@ interface Events {
 	capacity: (capacity: GamesCapacity) => void;
 }
 
+interface Config {
+	engineStartPort: number;
+	autohostStartPort: number;
+	maxPortsUsed: number;
+	maxBattles: number;
+	gameHostIP: string;
+}
+
+interface Mocks {
+	runEngine?: typeof runEngine;
+}
+
+export type Env = Environment<Config, Mocks> & EngineRunnerEnv;
+
 /**
  * GamesManager is responsible for managing a pool of EngineRunners and assigning
  * them to free ports from the designated range.
  */
-export class GamesManager extends TypedEmitter<Events> {
+export class GamesManager extends TypedEmitter<Events> implements GamesManager {
 	private games: Map<string, Game> = new Map();
 	private usedBattleIds: Set<string> = new Set();
 	private usedPortOffset: Set<number> = new Set();
 	private lastPortOffset: number = 0;
-	private runEngine: typeof runEngine;
-	private logger: Logger;
-	private capacity: GamesCapacity;
+	private logger: Env['logger'];
+	private currCapacity: GamesCapacity;
 
-	/**
-	 * @param opts Optional, runEngineFn is for tests.
-	 */
-	constructor(opts?: { logger?: Logger; runEngineFn?: typeof runEngine }) {
+	constructor(private env: Env) {
 		super();
-		const o = opts || {};
-		this.runEngine = o.runEngineFn ?? runEngine;
-		const parentLogger = o.logger ?? pino();
-		this.logger = parentLogger.child({ class: 'GamesManager' });
-		this.capacity = {
+		this.logger = env.logger.child({ class: 'GamesManager' });
+		this.currCapacity = {
 			currentBattles: 0,
-			maxBattles: MAX_GAMES,
+			maxBattles: env.config.maxBattles,
 		};
 	}
 
 	private findFreePortOffset(): number {
-		for (let i = 0; i < MAX_PORTS; i++) {
-			this.lastPortOffset = (this.lastPortOffset + 1) % MAX_PORTS;
+		for (let i = 0; i < this.env.config.maxPortsUsed; i++) {
+			this.lastPortOffset = (this.lastPortOffset + 1) % this.env.config.maxPortsUsed;
 			if (!this.usedPortOffset.has(this.lastPortOffset)) {
 				this.usedPortOffset.add(this.lastPortOffset);
 				return this.lastPortOffset;
@@ -89,17 +89,17 @@ export class GamesManager extends TypedEmitter<Events> {
 				`game ${req.battleId} already used`,
 			);
 		}
-		if (this.games.size >= MAX_GAMES) {
-			throw new TachyonError('invalid_request', 'too many games running');
+		if (this.games.size >= this.env.config.maxBattles) {
+			throw new TachyonError('invalid_request', 'too many battles running');
 		}
 		this.usedBattleIds.add(req.battleId);
 
 		const portOffset = this.findFreePortOffset();
-		const er = this.runEngine({
+		const er = (this.env.mocks?.runEngine ?? runEngine)(this.env, {
 			startRequest: req,
-			hostIP: HOST_IP,
-			hostPort: ENGINE_START_PORT + portOffset,
-			autohostPort: AUTOHOST_START_PORT + portOffset,
+			hostIP: this.env.config.gameHostIP,
+			hostPort: this.env.config.engineStartPort + portOffset,
+			autohostPort: this.env.config.autohostStartPort + portOffset,
 		});
 		const game: Game = {
 			battleId: req.battleId,
@@ -121,8 +121,8 @@ export class GamesManager extends TypedEmitter<Events> {
 			this.usedPortOffset.delete(game.portOffset);
 			if (game.started) {
 				this.emit('exit', game.battleId);
-				this.capacity.currentBattles -= 1;
-				this.emit('capacity', this.getCapacity());
+				this.currCapacity.currentBattles -= 1;
+				this.emit('capacity', this.capacity);
 			}
 		});
 
@@ -135,11 +135,14 @@ export class GamesManager extends TypedEmitter<Events> {
 
 		await events.once(er, 'start');
 		game.started = true;
-		this.capacity.currentBattles += 1;
+		this.currCapacity.currentBattles += 1;
 		process.nextTick(() => {
-			this.emit('capacity', this.getCapacity());
+			this.emit('capacity', this.capacity);
 		});
-		return { ip: HOST_IP, port: ENGINE_START_PORT + portOffset };
+		return {
+			ip: this.env.config.gameHostIP,
+			port: this.env.config.engineStartPort + portOffset,
+		};
 	}
 
 	async sendPacket(battleId: string, packet: Buffer): Promise<void> {
@@ -154,7 +157,7 @@ export class GamesManager extends TypedEmitter<Events> {
 		game.engineRunner.close();
 	}
 
-	getCapacity(): GamesCapacity {
-		return { ...this.capacity };
+	get capacity(): GamesCapacity {
+		return { ...this.currCapacity };
 	}
 }

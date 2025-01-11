@@ -11,6 +11,7 @@ import { setImmediate as asyncSetImmediate } from 'timers/promises';
 import { runEngine, EngineRunnerImpl } from './engineRunner.js';
 import { chdir } from 'node:process';
 import { ChildProcess, spawn, type SpawnOptions } from 'node:child_process';
+import { pino } from 'pino';
 
 // Find a free port to use for testing
 const tmpSock = dgram.createSocket('udp4').bind(0, '127.0.0.1');
@@ -51,6 +52,14 @@ const optsBase = {
 	autohostPort: testPort,
 };
 
+function getEnv(spawnMock?: typeof spawn) {
+	return {
+		logger: pino({ level: 'silent' }),
+		config: { springsettings: {} },
+		mocks: { spawn: spawnMock },
+	};
+}
+
 const origCwd = process.cwd();
 let testDir: string;
 
@@ -66,54 +75,51 @@ test.afterEach(async () => {
 });
 
 test('runEngine quick close works', async () => {
-	const er = runEngine(optsBase);
+	const er = runEngine(getEnv(), optsBase);
 	er.close();
 	await events.once(er, 'exit');
 });
 
 test('engineRunner emits error on server start', async () => {
-	const er = new EngineRunnerImpl();
-	er._run({
-		...optsBase,
-		spawnMock: (() => {
+	const er = new EngineRunnerImpl(
+		getEnv((() => {
 			const cp = new ChildProcess();
 			process.nextTick(() => {
 				cp.emit('error', new Error('test error'));
 			});
 			return cp;
-		}) as typeof spawn,
-	});
+		}) as typeof spawn),
+	);
+	er._run(optsBase);
 	await assert.rejects(events.once(er, 'start'), /test error/);
 });
 
 test('engineRunner spawns process correctly', async () => {
-	const er = new EngineRunnerImpl();
-	er._run({
-		...optsBase,
-		spawnMock: ((cmd: string, args: string[], opts: SpawnOptions) => {
+	const er = new EngineRunnerImpl(
+		getEnv(((cmd: string, args: string[], opts: SpawnOptions) => {
 			assert.match(cmd, /.*\/engines\/test\/spring-dedicated$/);
 			return spawn('echo', args, opts);
-		}) as typeof spawn,
-	});
+		}) as typeof spawn),
+	);
+	er._run(optsBase);
 	await events.once(er, 'exit');
 });
 
 test('engineRunner close before spawn works', async () => {
-	const er = new EngineRunnerImpl();
-	er._run({
-		...optsBase,
-		spawnMock: (() => {
+	const er = new EngineRunnerImpl(
+		getEnv((() => {
 			process.nextTick(() => {
 				er.close();
 			});
 			return spawn('sleep', ['1000'], { stdio: 'ignore' });
-		}) as typeof spawn,
-	});
+		}) as typeof spawn),
+	);
+	er._run(optsBase);
 	await events.once(er, 'exit');
 });
 
 test('engineRunner multi start, multi close', async () => {
-	const er = new EngineRunnerImpl();
+	const er = new EngineRunnerImpl(getEnv());
 	er._run(optsBase);
 	assert.throws(() => er._run(optsBase));
 	er.close();
@@ -122,10 +128,8 @@ test('engineRunner multi start, multi close', async () => {
 });
 
 test('engineRunner full run simulated engine', async () => {
-	const er = new EngineRunnerImpl();
-	er._run({
-		...optsBase,
-		spawnMock: (() => {
+	const er = new EngineRunnerImpl(
+		getEnv((() => {
 			const cp = new ChildProcess();
 
 			cp.kill = (() => {
@@ -139,8 +143,9 @@ test('engineRunner full run simulated engine', async () => {
 			setImmediate(() => simulateEngine(cp));
 
 			return cp;
-		}) as typeof spawn,
-	});
+		}) as typeof spawn),
+	);
+	er._run(optsBase);
 
 	async function simulateEngine(cp: ChildProcess) {
 		const s = dgram.createSocket('udp4');

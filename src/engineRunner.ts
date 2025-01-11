@@ -5,13 +5,13 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import dgram from 'node:dgram';
 import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
-import { type Logger, pino } from 'pino';
 import * as tdf from 'recoil-tdf';
 import { TypedEmitter } from 'tiny-typed-emitter';
 import { parsePacket, type Event, EventType, PacketParseError } from './engineAutohostInterface.js';
 import { scriptGameFromStartRequest, StartScriptGenError } from './startScriptGen.js';
 import type { AutohostStartRequestData } from 'tachyon-protocol/types';
 import { TachyonError } from './tachyonTypes.js';
+import { Environment } from './environment.js';
 
 function serializeEngineSettings(obj: { [k: string]: string }): string {
 	return Object.entries(obj)
@@ -66,13 +66,22 @@ interface Opts {
 	autohostPort: number;
 	hostIP: string;
 	hostPort: number;
-	logger?: Logger;
 }
 
 export interface EngineRunner extends TypedEmitter<EngineRunnerEvents> {
 	sendPacket(packet: Buffer): Promise<void>;
 	close(): void;
 }
+
+interface Mocks {
+	spawn?: typeof spawn;
+}
+
+interface Config {
+	springsettings: { [k: string]: string };
+}
+
+export type Env = Environment<Config, Mocks>;
 
 /**
  * Engine runner class responsible for lifecycle of the engine process and the
@@ -86,11 +95,11 @@ export class EngineRunnerImpl extends TypedEmitter<EngineRunnerEvents> implement
 	private engineProcess: null | ChildProcess = null;
 	private engineSpawned: boolean = false;
 	private state: State = State.None;
-	private logger: Logger;
+	private logger: Env['logger'];
 
-	public constructor(logger?: Logger) {
+	public constructor(private env: Env) {
 		super();
-		this.logger = (logger ?? pino()).child({ class: 'EngineRunner' });
+		this.logger = env.logger.child({ class: 'EngineRunner' });
 	}
 
 	/**
@@ -99,16 +108,16 @@ export class EngineRunnerImpl extends TypedEmitter<EngineRunnerEvents> implement
 	 * @param opts Options for the engine runner, but with `spawnMock` option
 	 *             that can be used for testing.
 	 */
-	public _run(opts: Opts & { spawnMock?: typeof spawn }) {
+	public _run(opts: Opts) {
 		this.logger = this.logger.child({ battleId: opts.startRequest.battleId });
 		if (this.state != State.None) {
 			throw new Error('EngineRunner already started');
 		}
 		this.state = State.Starting;
 		const run = async () => {
-			const instanceDir = await EngineRunnerImpl.setupInstanceDir(opts);
+			const instanceDir = await this.setupInstanceDir(opts);
 			await this.startUdpServer(opts.autohostPort);
-			await this.startEngine(instanceDir, opts.startRequest, opts.spawnMock ?? spawn);
+			await this.startEngine(instanceDir, opts.startRequest);
 			// The last part of startup is handled in the packed handler
 		};
 		run().catch((err) => this.handleError(err));
@@ -255,7 +264,6 @@ export class EngineRunnerImpl extends TypedEmitter<EngineRunnerEvents> implement
 	private async startEngine(
 		instanceDir: string,
 		startRequest: AutohostStartRequestData,
-		spawnFunc: typeof spawn,
 	): Promise<void> {
 		const engineDir = path.resolve('engines', startRequest.engineVersion);
 		if (!(await fs.stat(engineDir).catch(() => null))) {
@@ -267,7 +275,7 @@ export class EngineRunnerImpl extends TypedEmitter<EngineRunnerEvents> implement
 
 		if (this.state != State.Starting) return;
 
-		this.engineProcess = spawnFunc(
+		this.engineProcess = (this.env.mocks?.spawn ?? spawn)(
 			path.join(engineDir, 'spring-dedicated'),
 			['-isolation', path.join(instanceDir, 'script.txt')],
 			{
@@ -310,7 +318,7 @@ export class EngineRunnerImpl extends TypedEmitter<EngineRunnerEvents> implement
 	 * contains start script, settings, it's also where the demo and other
 	 * files are written.
 	 */
-	private static async setupInstanceDir(opts: Opts): Promise<string> {
+	private async setupInstanceDir(opts: Opts): Promise<string> {
 		let game;
 		try {
 			game = scriptGameFromStartRequest(opts.startRequest);
@@ -332,10 +340,8 @@ export class EngineRunnerImpl extends TypedEmitter<EngineRunnerEvents> implement
 		const scriptPath = path.join(instanceDir, 'script.txt');
 		await fs.writeFile(scriptPath, script);
 
-		// TODO: load spring settings from somewhere
 		const engineSettings = serializeEngineSettings({
-			'NetworkTimeout': '1000',
-			'InitialNetworkTimeout': '1000',
+			...this.env.config.springsettings,
 			// Needed by the logic in autohost: currently it doesn't properly
 			// handle player number mapping if we allow anonymous spectators.
 			'AllowSpectatorJoin': '0',
@@ -356,8 +362,8 @@ export class EngineRunnerImpl extends TypedEmitter<EngineRunnerEvents> implement
  * @returns The engine runner instance
  * @throws {never} `error` event is emitted from returned object if an error occurs
  */
-export function runEngine(opts: Opts): EngineRunner {
-	const runner = new EngineRunnerImpl(opts.logger);
+export function runEngine(env: Env, opts: Opts): EngineRunner {
+	const runner = new EngineRunnerImpl(env);
 	runner._run(opts);
 	return runner;
 }

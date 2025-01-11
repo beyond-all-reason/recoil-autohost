@@ -13,10 +13,11 @@ async function main(argv: string[]) {
 		process.exit(1);
 	}
 	const config = await loadConfig(argv[2]);
-
 	const logger = pino();
-	const manager = new GamesManager({ logger });
-	const autohost = new Autohost(manager, { logger });
+	const env = { logger, config };
+
+	const manager = new GamesManager(env);
+	const autohost = new Autohost(env, manager);
 
 	const clientOpts: TachyonClientOpts = {
 		hostname: config.hostname,
