@@ -22,4 +22,5 @@ trap restore EXIT
 
 npm run format:check || exit 1
 npm run lint || exit 1
-npm run test:clean || exit 1
+npm run test || exit 1
+npm run build || exit 1
