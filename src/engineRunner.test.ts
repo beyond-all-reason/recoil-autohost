@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test, { suite } from 'node:test';
 import assert from 'node:assert/strict';
 import dgram from 'node:dgram';
 import events from 'node:events';
@@ -63,117 +63,119 @@ function getEnv(spawnMock?: typeof spawn) {
 const origCwd = process.cwd();
 let testDir: string;
 
-test.beforeEach(async () => {
-	testDir = await mkdtemp(join(tmpdir(), 'engine-runner-test-'));
-	chdir(testDir);
-	await mkdir('engines/test', { recursive: true });
-});
-
-test.afterEach(async () => {
-	chdir(origCwd);
-	await rm(testDir, { recursive: true });
-});
-
-test('runEngine quick close works', async () => {
-	const er = runEngine(getEnv(), optsBase);
-	er.close();
-	await events.once(er, 'exit');
-});
-
-test('engineRunner emits error on server start', async () => {
-	const er = new EngineRunnerImpl(
-		getEnv((() => {
-			const cp = new ChildProcess();
-			process.nextTick(() => {
-				cp.emit('error', new Error('test error'));
-			});
-			return cp;
-		}) as typeof spawn),
-	);
-	er._run(optsBase);
-	await assert.rejects(events.once(er, 'start'), /test error/);
-});
-
-test('engineRunner spawns process correctly', async () => {
-	const er = new EngineRunnerImpl(
-		getEnv(((cmd: string, args: string[], opts: SpawnOptions) => {
-			assert.match(cmd, /.*\/engines\/test\/spring-dedicated$/);
-			return spawn('echo', args, opts);
-		}) as typeof spawn),
-	);
-	er._run(optsBase);
-	await events.once(er, 'exit');
-});
-
-test('engineRunner close before spawn works', async () => {
-	const er = new EngineRunnerImpl(
-		getEnv((() => {
-			process.nextTick(() => {
-				er.close();
-			});
-			return spawn('sleep', ['1000'], { stdio: 'ignore' });
-		}) as typeof spawn),
-	);
-	er._run(optsBase);
-	await events.once(er, 'exit');
-});
-
-test('engineRunner multi start, multi close', async () => {
-	const er = new EngineRunnerImpl(getEnv());
-	er._run(optsBase);
-	assert.throws(() => er._run(optsBase));
-	er.close();
-	er.close();
-	await events.once(er, 'exit');
-});
-
-test('engineRunner full run simulated engine', async () => {
-	const er = new EngineRunnerImpl(
-		getEnv((() => {
-			const cp = new ChildProcess();
-
-			cp.kill = (() => {
-				assert.fail('kill should not be called');
-			}) as typeof ChildProcess.prototype.kill;
-
-			process.nextTick(() => {
-				cp.emit('spawn');
-			});
-
-			setImmediate(() => simulateEngine(cp));
-
-			return cp;
-		}) as typeof spawn),
-	);
-	er._run(optsBase);
-
-	async function simulateEngine(cp: ChildProcess) {
-		const s = dgram.createSocket('udp4');
-		s.connect(testPort);
-		await events.once(s, 'connect');
-
-		for (const packet of [
-			Buffer.from('00', 'hex'),
-			Buffer.from('054f6e6c696e65207761726e696e67206c6f6c', 'hex'),
-			Buffer.from('01', 'hex'),
-		]) {
-			await asyncSetImmediate();
-			s.send(packet);
-			const msg = (await events.once(s, 'message')) as [Buffer, dgram.RemoteInfo];
-			assert.equal(msg[0].toString('utf8'), `test${packet[0]}`);
-		}
-
-		await asyncSetImmediate();
-		cp.emit('exit', 0, 'exit');
-		s.close();
-	}
-
-	assert.rejects(er.sendPacket(Buffer.from('asd')), /not running/);
-
-	er.on('packet', async (packet) => {
-		await er.sendPacket(Buffer.from(`test${packet.type}`));
+suite('engineRunner', () => {
+	test.beforeEach(async () => {
+		testDir = await mkdtemp(join(tmpdir(), 'engine-runner-test-'));
+		chdir(testDir);
+		await mkdir('engines/test', { recursive: true });
 	});
 
-	await events.once(er, 'start');
-	await events.once(er, 'exit');
+	test.afterEach(async () => {
+		chdir(origCwd);
+		await rm(testDir, { recursive: true });
+	});
+
+	test('runEngine quick close works', async () => {
+		const er = runEngine(getEnv(), optsBase);
+		er.close();
+		await events.once(er, 'exit');
+	});
+
+	test('engineRunner emits error on server start', async () => {
+		const er = new EngineRunnerImpl(
+			getEnv((() => {
+				const cp = new ChildProcess();
+				process.nextTick(() => {
+					cp.emit('error', new Error('test error'));
+				});
+				return cp;
+			}) as typeof spawn),
+		);
+		er._run(optsBase);
+		await assert.rejects(events.once(er, 'start'), /test error/);
+	});
+
+	test('engineRunner spawns process correctly', async () => {
+		const er = new EngineRunnerImpl(
+			getEnv(((cmd: string, args: string[], opts: SpawnOptions) => {
+				assert.match(cmd, /.*\/engines\/test\/spring-dedicated$/);
+				return spawn('echo', args, opts);
+			}) as typeof spawn),
+		);
+		er._run(optsBase);
+		await events.once(er, 'exit');
+	});
+
+	test('engineRunner close before spawn works', async () => {
+		const er = new EngineRunnerImpl(
+			getEnv((() => {
+				process.nextTick(() => {
+					er.close();
+				});
+				return spawn('sleep', ['1000'], { stdio: 'ignore' });
+			}) as typeof spawn),
+		);
+		er._run(optsBase);
+		await events.once(er, 'exit');
+	});
+
+	test('engineRunner multi start, multi close', async () => {
+		const er = new EngineRunnerImpl(getEnv());
+		er._run(optsBase);
+		assert.throws(() => er._run(optsBase));
+		er.close();
+		er.close();
+		await events.once(er, 'exit');
+	});
+
+	test('engineRunner full run simulated engine', async () => {
+		const er = new EngineRunnerImpl(
+			getEnv((() => {
+				const cp = new ChildProcess();
+
+				cp.kill = (() => {
+					assert.fail('kill should not be called');
+				}) as typeof ChildProcess.prototype.kill;
+
+				process.nextTick(() => {
+					cp.emit('spawn');
+				});
+
+				setImmediate(() => simulateEngine(cp));
+
+				return cp;
+			}) as typeof spawn),
+		);
+		er._run(optsBase);
+
+		async function simulateEngine(cp: ChildProcess) {
+			const s = dgram.createSocket('udp4');
+			s.connect(testPort);
+			await events.once(s, 'connect');
+
+			for (const packet of [
+				Buffer.from('00', 'hex'),
+				Buffer.from('054f6e6c696e65207761726e696e67206c6f6c', 'hex'),
+				Buffer.from('01', 'hex'),
+			]) {
+				await asyncSetImmediate();
+				s.send(packet);
+				const msg = (await events.once(s, 'message')) as [Buffer, dgram.RemoteInfo];
+				assert.equal(msg[0].toString('utf8'), `test${packet[0]}`);
+			}
+
+			await asyncSetImmediate();
+			cp.emit('exit', 0, 'exit');
+			s.close();
+		}
+
+		assert.rejects(er.sendPacket(Buffer.from('asd')), /not running/);
+
+		er.on('packet', async (packet) => {
+			await er.sendPacket(Buffer.from(`test${packet.type}`));
+		});
+
+		await events.once(er, 'start');
+		await events.once(er, 'exit');
+	});
 });
