@@ -56,7 +56,7 @@ const optsBase = {
 function getEnv(spawnMock?: typeof spawn) {
 	return {
 		logger: pino({ level: 'silent' }),
-		config: { springsettings: {} },
+		config: { engineSettings: {} },
 		mocks: { spawn: spawnMock },
 	};
 }

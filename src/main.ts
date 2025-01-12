@@ -20,12 +20,15 @@ async function main(argv: string[]) {
 	const autohost = new Autohost(env, manager);
 
 	const clientOpts: TachyonClientOpts = {
-		hostname: config.hostname,
-		clientId: config.clientId,
-		clientSecret: config.clientSecret,
+		hostname: config.tachyonServer,
+		clientId: config.authClientId,
+		clientSecret: config.authClientSecret,
 	};
-	if (config.port) {
-		clientOpts.port = config.port;
+	if (config.tachyonServerPort) {
+		clientOpts.port = config.tachyonServerPort;
+	}
+	if (config.useSecureConnection !== null && config.useSecureConnection !== undefined) {
+		clientOpts.secure = config.useSecureConnection;
 	}
 
 	// This is a simple exponential backoff reconnect loop, we
@@ -35,7 +38,7 @@ async function main(argv: string[]) {
 	const maxReconnectDelay = config.maxReconnectDelaySeconds * 1000;
 	let nextReconnectDelay: number = minReconnectDelay;
 	for (;;) {
-		logger.info({ tachyonServer: config.hostname }, 'connecting to tachyon server');
+		logger.info({ tachyonServer: config.tachyonServer }, 'connecting to tachyon server');
 		const client = new TachyonClient(clientOpts);
 
 		client.on('connected', () => {

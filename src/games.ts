@@ -38,10 +38,10 @@ interface Events {
 
 interface Config {
 	engineStartPort: number;
-	autohostStartPort: number;
+	engineAutohostStartPort: number;
 	maxPortsUsed: number;
 	maxBattles: number;
-	gameHostIP: string;
+	hostingIP: string;
 }
 
 interface Mocks {
@@ -97,9 +97,9 @@ export class GamesManager extends TypedEmitter<Events> implements GamesManager {
 		const portOffset = this.findFreePortOffset();
 		const er = (this.env.mocks?.runEngine ?? runEngine)(this.env, {
 			startRequest: req,
-			hostIP: this.env.config.gameHostIP,
+			hostIP: this.env.config.hostingIP,
 			hostPort: this.env.config.engineStartPort + portOffset,
-			autohostPort: this.env.config.autohostStartPort + portOffset,
+			autohostPort: this.env.config.engineAutohostStartPort + portOffset,
 		});
 		const game: Game = {
 			battleId: req.battleId,
@@ -140,7 +140,7 @@ export class GamesManager extends TypedEmitter<Events> implements GamesManager {
 			this.emit('capacity', this.capacity);
 		});
 		return {
-			ip: this.env.config.gameHostIP,
+			ip: this.env.config.hostingIP,
 			port: this.env.config.engineStartPort + portOffset,
 		};
 	}

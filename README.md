@@ -49,9 +49,10 @@ A minimal configuration file looks like:
 <!-- prettier-ignore -->
 ```json
 {
-  "hostname": "lobby-server.example.com",
-  "clientId": "autohost1",
-  "clientSecret": "pass1",
+  "tachyonServer": "lobby-server.example.com",
+  "authClientId": "autohost1",
+  "authClientSecret": "pass1",
+  "hostingIP": "123.123.123.123"
 }
 ```
 

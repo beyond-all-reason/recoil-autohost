@@ -78,7 +78,7 @@ interface Mocks {
 }
 
 interface Config {
-	springsettings: { [k: string]: string };
+	engineSettings: { [k: string]: string };
 }
 
 export type Env = Environment<Config, Mocks>;
@@ -359,7 +359,7 @@ export class EngineRunnerImpl extends TypedEmitter<EngineRunnerEvents> implement
 		await fs.writeFile(scriptPath, script);
 
 		const engineSettings = serializeEngineSettings({
-			...this.env.config.springsettings,
+			...this.env.config.engineSettings,
 			// Needed by the logic in autohost: currently it doesn't properly
 			// handle player number mapping if we allow anonymous spectators.
 			'AllowSpectatorJoin': '0',
