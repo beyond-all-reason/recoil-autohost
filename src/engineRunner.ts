@@ -96,6 +96,7 @@ export class EngineRunnerImpl extends TypedEmitter<EngineRunnerEvents> implement
 	private engineSpawned: boolean = false;
 	private state: State = State.None;
 	private logger: Env['logger'];
+	private luamsgRegex: RegExp | null = null;
 
 	public constructor(private env: Env) {
 		super();
@@ -115,9 +116,18 @@ export class EngineRunnerImpl extends TypedEmitter<EngineRunnerEvents> implement
 		}
 		this.state = State.Starting;
 		const run = async () => {
+			if (opts.startRequest.luamsgRegexp) {
+				try {
+					this.luamsgRegex = new RegExp(opts.startRequest.luamsgRegexp);
+				} catch (err) {
+					throw new TachyonError('invalid_request', `Invalid luamsg RegExp: ${err}`);
+				}
+			}
+
 			const instanceDir = await this.setupInstanceDir(opts);
 			await this.startUdpServer(opts.autohostPort);
 			await this.startEngine(instanceDir, opts.startRequest);
+
 			// The last part of startup is handled in the packed handler
 		};
 		run().catch((err) => this.handleError(err));
@@ -247,6 +257,14 @@ export class EngineRunnerImpl extends TypedEmitter<EngineRunnerEvents> implement
 					{ sourcePort: rinfo.port },
 					`Received packet from ${rinfo.port}, blocked`,
 				);
+				return;
+			}
+
+			// Don't emit luamsg's not matching start script regexp.
+			if (
+				packet.type === EventType.GAME_LUAMSG &&
+				(this.luamsgRegex === null || !this.luamsgRegex.test(packet.data.toString('utf8')))
+			) {
 				return;
 			}
 			this.emit('packet', packet);
