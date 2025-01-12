@@ -1,0 +1,10 @@
+{
+  "hostname": "localhost",
+  "port": 8084,
+  "clientId": "autohost1",
+  "clientSecret": "pass1",
+  "springsettings": {
+    "InitialNetworkTimeout": 1000,
+    "LogFlushLevel": 0
+  }
+}
