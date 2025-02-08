@@ -12,6 +12,7 @@ import { randomUUID } from 'node:crypto';
 import { Ajv, type JSONSchemaType } from 'ajv';
 import type {
 	AutohostAddPlayerRequestData,
+	AutohostInstallEngineRequestData,
 	AutohostKickPlayerRequestData,
 	AutohostKillRequestData,
 	AutohostMutePlayerRequestData,
@@ -98,6 +99,7 @@ export interface TachyonAutohost {
 	sendCommand(request: AutohostSendCommandRequestData): Promise<void>;
 	sendMessage(request: AutohostSendMessageRequestData): Promise<void>;
 	subscribeUpdates(request: AutohostSubscribeUpdatesRequestData): Promise<void>;
+	installEngine(request: AutohostInstallEngineRequestData): Promise<void>;
 	connected(server: TachyonServer): void;
 	disconnected(): void;
 	logger: Logger;
@@ -169,6 +171,8 @@ export async function callTachyonAutohost(
 				return createTachyonResponseOk(req, await autohost.sendMessage(req.data));
 			case 'autohost/subscribeUpdates':
 				return createTachyonResponseOk(req, await autohost.subscribeUpdates(req.data));
+			case 'autohost/installEngine':
+				return createTachyonResponseOk(req, await autohost.installEngine(req.data));
 			default:
 				assertUnreachable(req);
 		}

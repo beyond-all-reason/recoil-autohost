@@ -18,6 +18,7 @@ export interface Config {
 	engineStartPort: number;
 	engineAutohostStartPort: number;
 	maxPortsUsed: number;
+	engineInstallTimeoutSeconds: number;
 }
 
 const ConfigSchema: JSONSchemaType<Config> = {
@@ -97,6 +98,12 @@ const ConfigSchema: JSONSchemaType<Config> = {
 				'Maximum number of ports that can be used by the service, this +StartPorts define the port range.',
 			default: 1000,
 			minimum: 1,
+		},
+		engineInstallTimeoutSeconds: {
+			type: 'integer',
+			description: 'Hard timeout for engine installation by engine manager',
+			default: 10 * 60,
+			minimum: 5,
 		},
 	},
 	required: ['tachyonServer', 'authClientId', 'authClientSecret', 'hostingIP'],

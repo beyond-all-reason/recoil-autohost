@@ -34,12 +34,16 @@ suite('tachyon types', () => {
 	});
 
 	test('creating a tachyon event succeeds', () => {
-		const event = createTachyonEvent('autohost/status', { currentBattles: 2, maxBattles: 4 });
+		const event = createTachyonEvent('autohost/status', {
+			currentBattles: 2,
+			maxBattles: 4,
+			availableEngines: ['2025.01.02'],
+		});
 		assert.deepStrictEqual(event, {
 			type: 'event',
 			messageId: event.messageId,
 			commandId: 'autohost/status',
-			data: { currentBattles: 2, maxBattles: 4 },
+			data: { currentBattles: 2, maxBattles: 4, availableEngines: ['2025.01.02'] },
 		});
 	});
 

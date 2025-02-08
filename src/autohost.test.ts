@@ -3,6 +3,7 @@ import { pino } from 'pino';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
+import { TypedEmitter } from 'tiny-typed-emitter';
 import { GamesManager, type Env as GamesManagerEnv } from './games.js';
 import {
 	Autohost,
@@ -49,6 +50,7 @@ import {
 	LuaMsgUIMode,
 } from './engineAutohostInterface.js';
 import { runEngine } from './engineRunner.js';
+import type { EngineVersionsManager, EngineVersionsManagerEvents } from './engineVersions.js';
 
 function createStartRequest(players: { name: string; userId: string }[]): AutohostStartRequestData {
 	return {
@@ -122,6 +124,14 @@ test('getPlayerNumbers match statscript gen', () => {
 	}
 });
 
+class EngineVersionsManagerFake
+	extends TypedEmitter<EngineVersionsManagerEvents>
+	implements EngineVersionsManager
+{
+	public engineVersions: string[] = [];
+	public installEngine(_version: string): void {}
+}
+
 suite('Autohost', async () => {
 	function getEnv(runEngineMock?: typeof runEngine): GamesManagerEnv & AutohostEnv {
 		return {
@@ -142,7 +152,7 @@ suite('Autohost', async () => {
 	await test('simple start', async () => {
 		const env = getEnv();
 		const gm = new GamesManager(env);
-		const ah = new Autohost(env, gm);
+		const ah = new Autohost(env, gm, new EngineVersionsManagerFake());
 		const res = await ah.start(createStartRequest([{ name: 'user1', userId: randomUUID() }]));
 		assert.ok(res.ips.length > 0);
 	});
@@ -150,7 +160,7 @@ suite('Autohost', async () => {
 	await test('multiple starts', async () => {
 		const env = getEnv();
 		const gm = new GamesManager(env);
-		const ah = new Autohost(env, gm);
+		const ah = new Autohost(env, gm, new EngineVersionsManagerFake());
 		await ah.start(createStartRequest([{ name: 'user1', userId: randomUUID() }]));
 		await ah.start(createStartRequest([{ name: 'user1', userId: randomUUID() }]));
 		await ah.start(createStartRequest([{ name: 'user1', userId: randomUUID() }]));
@@ -161,7 +171,7 @@ suite('Autohost', async () => {
 		const er = new EngineRunnerFake();
 		const env = getEnv(() => er);
 		const gm = new GamesManager(env);
-		const ah = new Autohost(env, gm);
+		const ah = new Autohost(env, gm, new EngineVersionsManagerFake());
 		const req1 = createStartRequest([{ name: 'user1', userId: randomUUID() }]);
 		await ah.start(req1);
 
@@ -180,14 +190,14 @@ suite('Autohost', async () => {
 	test('simple tachyon connect/disconnect', () => {
 		const env = getEnv();
 		const gm = new GamesManager(env);
-		const ah = new Autohost(env, gm);
+		const ah = new Autohost(env, gm, new EngineVersionsManagerFake());
 		const ts = { update: async () => {}, status: mock.fn(async () => {}) };
 		ah.connected(ts);
 		assert.equal(ts.status.mock.callCount(), 1);
 		ah.disconnected();
 	});
 
-	await test('tachyon status updates', async () => {
+	await test('tachyon status updates battles', async () => {
 		const ers: EngineRunnerFake[] = [];
 		const env = getEnv(() => {
 			const er = new EngineRunnerFake();
@@ -195,7 +205,7 @@ suite('Autohost', async () => {
 			return er;
 		});
 		const gm = new GamesManager(env);
-		const ah = new Autohost(env, gm);
+		const ah = new Autohost(env, gm, new EngineVersionsManagerFake());
 		const ts = {
 			update: async () => {},
 			status: mock.fn(async (_status: AutohostStatusEventData) => {}),
@@ -225,11 +235,39 @@ suite('Autohost', async () => {
 		);
 	});
 
+	await test('tachyon install engine', async () => {
+		const env = getEnv();
+		const gm = new GamesManager(env);
+		const evm = new EngineVersionsManagerFake();
+		const installEngineMock = mock.method(evm, 'installEngine');
+		installEngineMock.mock.mockImplementation((version: string) => {
+			evm.engineVersions.push(version);
+			evm.emit('versions', evm.engineVersions);
+		});
+		const ah = new Autohost(env, gm, evm);
+		const ts = { update: async () => {}, status: mock.fn(async (_status: unknown) => {}) };
+		ah.connected(ts);
+
+		await ah.installEngine({ version: '1234' });
+
+		assert.equal(ts.status.mock.callCount(), 2);
+		assert.deepEqual(ts.status.mock.calls[0].arguments[0], {
+			...gm.capacity,
+			availableEngines: [],
+		});
+		assert.deepEqual(ts.status.mock.calls[1].arguments[0], {
+			...gm.capacity,
+			availableEngines: ['1234'],
+		});
+
+		ah.disconnected();
+	});
+
 	await test('kill', async () => {
 		const er = new EngineRunnerFake();
 		const env = getEnv(() => er);
 		const gm = new GamesManager(env);
-		const ah = new Autohost(env, gm);
+		const ah = new Autohost(env, gm, new EngineVersionsManagerFake());
 		const req = createStartRequest([{ name: 'user1', userId: randomUUID() }]);
 		await ah.start(req);
 		await ah.kill({ battleId: req.battleId });
@@ -239,7 +277,7 @@ suite('Autohost', async () => {
 	await test('kill battle not found', async () => {
 		const env = getEnv();
 		const gm = new GamesManager(env);
-		const ah = new Autohost(env, gm);
+		const ah = new Autohost(env, gm, new EngineVersionsManagerFake());
 		await assert.rejects(ah.kill({ battleId: 'asdasd' }), {
 			name: 'TachyonError',
 			reason: 'invalid_request',
@@ -251,7 +289,7 @@ suite('Autohost', async () => {
 		const er = new EngineRunnerFake();
 		const env = getEnv(() => er);
 		const gm = new GamesManager(env);
-		const ah = new Autohost(env, gm);
+		const ah = new Autohost(env, gm, new EngineVersionsManagerFake());
 		const req = createStartRequest([{ name: 'user1', userId: randomUUID() }]);
 		await ah.start(req);
 		await ah.sendCommand({ battleId: req.battleId, command: 'test', arguments: ['a', 'b'] });
@@ -262,7 +300,7 @@ suite('Autohost', async () => {
 	await test('sendCommand battle not found', async () => {
 		const env = getEnv();
 		const gm = new GamesManager(env);
-		const ah = new Autohost(env, gm);
+		const ah = new Autohost(env, gm, new EngineVersionsManagerFake());
 		await assert.rejects(ah.sendCommand({ battleId: 'asdasd', command: 'asd' }), {
 			name: 'TachyonError',
 			reason: 'invalid_request',
@@ -274,7 +312,7 @@ suite('Autohost', async () => {
 		const er = new EngineRunnerFake();
 		const env = getEnv(() => er);
 		const gm = new GamesManager(env);
-		const ah = new Autohost(env, gm);
+		const ah = new Autohost(env, gm, new EngineVersionsManagerFake());
 		const req = createStartRequest([{ name: 'user1', userId: randomUUID() }]);
 		await ah.start(req);
 		await ah.sendMessage({ battleId: req.battleId, message: 'asd' });
@@ -286,7 +324,7 @@ suite('Autohost', async () => {
 		const er = new EngineRunnerFake();
 		const env = getEnv(() => er);
 		const gm = new GamesManager(env);
-		const ah = new Autohost(env, gm);
+		const ah = new Autohost(env, gm, new EngineVersionsManagerFake());
 		const req = createStartRequest([{ name: 'user1', userId: '10' }]);
 		await ah.start(req);
 		await ah.kickPlayer({
@@ -301,7 +339,7 @@ suite('Autohost', async () => {
 		const er = new EngineRunnerFake();
 		const env = getEnv(() => er);
 		const gm = new GamesManager(env);
-		const ah = new Autohost(env, gm);
+		const ah = new Autohost(env, gm, new EngineVersionsManagerFake());
 		const req = createStartRequest([{ name: 'user1', userId: '10' }]);
 		await ah.start(req);
 		await assert.rejects(ah.kickPlayer({ battleId: req.battleId, userId: '11' }), {
@@ -315,7 +353,7 @@ suite('Autohost', async () => {
 		const er = new EngineRunnerFake();
 		const env = getEnv(() => er);
 		const gm = new GamesManager(env);
-		const ah = new Autohost(env, gm);
+		const ah = new Autohost(env, gm, new EngineVersionsManagerFake());
 		const req = createStartRequest([{ name: 'user1', userId: '10' }]);
 		await ah.start(req);
 		await assert.rejects(ah.kickPlayer({ battleId: 'asdasdasd', userId: '10' }), {
@@ -329,7 +367,7 @@ suite('Autohost', async () => {
 		const er = new EngineRunnerFake();
 		const env = getEnv(() => er);
 		const gm = new GamesManager(env);
-		const ah = new Autohost(env, gm);
+		const ah = new Autohost(env, gm, new EngineVersionsManagerFake());
 		const req = createStartRequest([{ name: 'user1', userId: '10' }]);
 		await ah.start(req);
 		await ah.mutePlayer({
@@ -346,7 +384,7 @@ suite('Autohost', async () => {
 		const er = new EngineRunnerFake();
 		const env = getEnv(() => er);
 		const gm = new GamesManager(env);
-		const ah = new Autohost(env, gm);
+		const ah = new Autohost(env, gm, new EngineVersionsManagerFake());
 		const req = createStartRequest([
 			{ name: 'user1', userId: '10' },
 			{ name: 'user2', userId: '12' },
@@ -366,7 +404,7 @@ suite('Autohost', async () => {
 		const er = new EngineRunnerFake();
 		const env = getEnv(() => er);
 		const gm = new GamesManager(env);
-		const ah = new Autohost(env, gm);
+		const ah = new Autohost(env, gm, new EngineVersionsManagerFake());
 		const req = createStartRequest([
 			{ name: 'user1', userId: '10' },
 			{ name: 'user2', userId: '12' },
@@ -387,7 +425,7 @@ suite('Autohost', async () => {
 		const er = new EngineRunnerFake();
 		const env = getEnv(() => er);
 		const gm = new GamesManager(env);
-		const ah = new Autohost(env, gm);
+		const ah = new Autohost(env, gm, new EngineVersionsManagerFake());
 		const req = createStartRequest([{ name: 'user1', userId: randomUUID() }]);
 		await ah.start(req);
 		await ah.addPlayer({
@@ -406,7 +444,7 @@ suite('Autohost', async () => {
 		const er = new EngineRunnerFake();
 		const env = getEnv(() => er);
 		const gm = new GamesManager(env);
-		const ah = new Autohost(env, gm);
+		const ah = new Autohost(env, gm, new EngineVersionsManagerFake());
 		const req = createStartRequest([{ name: 'user1', userId: '10' }]);
 		await ah.start(req);
 		await ah.addPlayer({
@@ -424,7 +462,7 @@ suite('Autohost', async () => {
 	await test('addPlayer duplicate name', async () => {
 		const env = getEnv();
 		const gm = new GamesManager(env);
-		const ah = new Autohost(env, gm);
+		const ah = new Autohost(env, gm, new EngineVersionsManagerFake());
 		const req = createStartRequest([{ name: 'user1', userId: '10' }]);
 		await ah.start(req);
 		await assert.rejects(
@@ -441,7 +479,7 @@ suite('Autohost', async () => {
 	await test('addPlayer same user id different name', async () => {
 		const env = getEnv();
 		const gm = new GamesManager(env);
-		const ah = new Autohost(env, gm);
+		const ah = new Autohost(env, gm, new EngineVersionsManagerFake());
 		const req = createStartRequest([{ name: 'user1', userId: '10' }]);
 		await ah.start(req);
 		await assert.rejects(
@@ -459,7 +497,7 @@ suite('Autohost', async () => {
 		const er = new EngineRunnerFake();
 		const env = getEnv(() => er);
 		const gm = new GamesManager(env);
-		const ah = new Autohost(env, gm);
+		const ah = new Autohost(env, gm, new EngineVersionsManagerFake());
 		const req = createStartRequest([{ name: 'user1', userId: randomUUID() }]);
 		await ah.start(req);
 		er.sendPacket.mock.mockImplementationOnce(async () => {
@@ -487,7 +525,7 @@ suite('Autohost', async () => {
 		const er = new EngineRunnerFake();
 		const env = getEnv(() => er);
 		const gm = new GamesManager(env);
-		const ah = new Autohost(env, gm);
+		const ah = new Autohost(env, gm, new EngineVersionsManagerFake());
 		const ts = {
 			update: mock.fn(async (_u: AutohostUpdateEventData) => {}),
 			status: async () => {},

@@ -1,6 +1,7 @@
 import { setTimeout } from 'node:timers/promises';
 import { once } from 'node:events';
 import { GamesManager } from './games.js';
+import { EngineVersionsManagerImpl } from './engineVersions.js';
 import { Autohost } from './autohost.js';
 import { callTachyonAutohost, createTachyonEvent, TachyonServer } from './tachyonTypes.js';
 import { TachyonClient, TachyonClientOpts } from './tachyonClient.js';
@@ -17,7 +18,8 @@ async function main(argv: string[]) {
 	const env = { logger, config };
 
 	const manager = new GamesManager(env);
-	const autohost = new Autohost(env, manager);
+	const engineVersionMgr = new EngineVersionsManagerImpl(env);
+	const autohost = new Autohost(env, manager, engineVersionMgr);
 
 	const clientOpts: TachyonClientOpts = {
 		hostname: config.tachyonServer,

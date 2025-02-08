@@ -5,6 +5,7 @@
 import { TachyonAutohost, TachyonError, TachyonServer } from './tachyonTypes.js';
 import {
 	AutohostAddPlayerRequestData,
+	AutohostInstallEngineRequestData,
 	AutohostKickPlayerRequestData,
 	AutohostKillRequestData,
 	AutohostMutePlayerRequestData,
@@ -13,11 +14,12 @@ import {
 	AutohostSpecPlayersRequestData,
 	AutohostStartOkResponseData,
 	AutohostStartRequestData,
+	AutohostStatusEventData,
 	AutohostSubscribeUpdatesRequestData,
 	AutohostUpdateEventData,
-	PlayerLeftUpdate,
-	PlayerChatUpdate,
 	LuaMsgUpdate,
+	PlayerChatUpdate,
+	PlayerLeftUpdate,
 } from 'tachyon-protocol/types';
 import {
 	serializeMessagePacket,
@@ -31,6 +33,7 @@ import {
 	LuaMsgScript,
 } from './engineAutohostInterface.js';
 import type { GamesManager } from './games.js';
+import type { EngineVersionsManager } from './engineVersions.js';
 import { MultiIndex } from './multiIndex.js';
 import { EventsBuffer, EventsBufferError } from './eventsBuffer.js';
 import { Environment } from './environment.js';
@@ -83,6 +86,7 @@ export class Autohost implements TachyonAutohost {
 	// or `engine_crash` updates but we didn't get the `exit` event for yet. This is to make
 	// sure we are only publishing a single event of this type.
 	private finishedBattles: Set<string> = new Set();
+	private currentStatus: AutohostStatusEventData;
 	private eventsBuffer: EventsBuffer<{
 		battleId: string;
 		update: AutohostUpdateEventData['update'];
@@ -91,14 +95,26 @@ export class Autohost implements TachyonAutohost {
 
 	constructor(
 		env: Env,
-		private manager: GamesManager,
+		private gamesMgr: GamesManager,
+		private engineVersionsMgr: EngineVersionsManager,
 	) {
 		this.logger = env.logger;
 		this.eventsBuffer = new EventsBuffer(
 			env.config.maxUpdatesSubscriptionAgeSeconds * 1000 * 1000,
 		);
 
-		this.manager.on('error', (battleId, err) => {
+		this.currentStatus = {
+			availableEngines: Array.from(engineVersionsMgr.engineVersions),
+			...this.gamesMgr.capacity,
+		};
+
+		this.engineVersionsMgr.on('versions', (versions) => {
+			this.currentStatus = { ...this.currentStatus, availableEngines: Array.from(versions) };
+
+			if (this.server) this.server.status(this.currentStatus).catch(() => null);
+		});
+
+		this.gamesMgr.on('error', (battleId, err) => {
 			if (!this.finishedBattles.has(battleId)) {
 				this.eventsBuffer.push({
 					battleId,
@@ -108,7 +124,7 @@ export class Autohost implements TachyonAutohost {
 			}
 		});
 
-		this.manager.on('exit', (battleId) => {
+		this.gamesMgr.on('exit', (battleId) => {
 			this.battlePlayers.delete(battleId);
 			if (!this.finishedBattles.has(battleId)) {
 				this.logger.warn(
@@ -120,14 +136,16 @@ export class Autohost implements TachyonAutohost {
 				this.finishedBattles.delete(battleId);
 			}
 		});
-		this.manager.on('capacity', (newCapacity) => {
-			if (this.server) this.server.status(newCapacity).catch(() => null);
+		this.gamesMgr.on('capacity', (newCapacity) => {
+			this.currentStatus = { ...this.currentStatus, ...newCapacity };
+
+			if (this.server) this.server.status(this.currentStatus).catch(() => null);
 		});
-		this.manager.on('packet', (battleId, ev) => this.handlePacket(battleId, ev));
+		this.gamesMgr.on('packet', (battleId, ev) => this.handlePacket(battleId, ev));
 	}
 
 	async start(req: AutohostStartRequestData): Promise<AutohostStartOkResponseData> {
-		const { ip, port } = await this.manager.start(req);
+		const { ip, port } = await this.gamesMgr.start(req);
 
 		const players: MultiIndex<PlayerIds> = new MultiIndex({
 			userId: '',
@@ -143,7 +161,7 @@ export class Autohost implements TachyonAutohost {
 	}
 
 	async kill(req: AutohostKillRequestData): Promise<void> {
-		this.manager.killGame(req.battleId);
+		this.gamesMgr.killGame(req.battleId);
 	}
 
 	async addPlayer(req: AutohostAddPlayerRequestData): Promise<void> {
@@ -172,7 +190,7 @@ export class Autohost implements TachyonAutohost {
 		}
 		const command = serializeCommandPacket('adduser', args);
 		try {
-			await this.manager.sendPacket(req.battleId, command);
+			await this.gamesMgr.sendPacket(req.battleId, command);
 		} catch (err) {
 			this.logger.warn(err, 'failing to send adduser, it might cause playerNumber desync');
 			// If it was new player, drop him.
@@ -186,7 +204,7 @@ export class Autohost implements TachyonAutohost {
 	async kickPlayer(req: AutohostKickPlayerRequestData): Promise<void> {
 		const player = this.getPlayerName(req.battleId, req.userId);
 		const command = serializeCommandPacket('kick', [player]);
-		await this.manager.sendPacket(req.battleId, command);
+		await this.gamesMgr.sendPacket(req.battleId, command);
 	}
 
 	async mutePlayer(req: AutohostMutePlayerRequestData): Promise<void> {
@@ -196,20 +214,20 @@ export class Autohost implements TachyonAutohost {
 			boolToStr(req.chat),
 			boolToStr(req.draw),
 		]);
-		await this.manager.sendPacket(req.battleId, command);
+		await this.gamesMgr.sendPacket(req.battleId, command);
 	}
 
 	async specPlayers(req: AutohostSpecPlayersRequestData): Promise<void> {
 		for (const p of req.userIds.map((userId) => this.getPlayerName(req.battleId, userId))) {
 			const command = serializeCommandPacket('spec', [p]);
-			await this.manager.sendPacket(req.battleId, command);
+			await this.gamesMgr.sendPacket(req.battleId, command);
 		}
 	}
 
 	async sendCommand(req: AutohostSendCommandRequestData): Promise<void> {
 		try {
 			const command = serializeCommandPacket(req.command, req.arguments || []);
-			await this.manager.sendPacket(req.battleId, command);
+			await this.gamesMgr.sendPacket(req.battleId, command);
 		} catch (err) {
 			if (err instanceof PacketSerializeError) {
 				throw new TachyonError(
@@ -224,7 +242,7 @@ export class Autohost implements TachyonAutohost {
 	async sendMessage(req: AutohostSendMessageRequestData): Promise<void> {
 		try {
 			const message = serializeMessagePacket(req.message);
-			await this.manager.sendPacket(req.battleId, message);
+			await this.gamesMgr.sendPacket(req.battleId, message);
 		} catch (err) {
 			if (err instanceof PacketSerializeError) {
 				throw new TachyonError(
@@ -253,9 +271,13 @@ export class Autohost implements TachyonAutohost {
 		}
 	}
 
+	async installEngine(req: AutohostInstallEngineRequestData): Promise<void> {
+		this.engineVersionsMgr.installEngine(req.version);
+	}
+
 	connected(server: TachyonServer): void {
 		this.server = server;
-		server.status(this.manager.capacity).catch(() => null);
+		server.status(this.currentStatus).catch(() => null);
 	}
 
 	disconnected(): void {
