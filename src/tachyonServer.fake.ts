@@ -153,7 +153,10 @@ export async function createTachyonServer(options?: TachyonServerOpts) {
 	await server.register(FastifyFormBody);
 	await server.register(FastifyBasicAuth, {
 		validate: async (username, password, _req, reply) => {
-			if (username !== opts.clientId || password !== opts.clientSecret) {
+			if (
+				decodeURIComponent(username) !== opts.clientId ||
+				decodeURIComponent(password) !== opts.clientSecret
+			) {
 				reply.status(401);
 				reply.header('www-authenticate', 'Basic realm="tachyon_oauth2"');
 				return new Oauth2Error('invalid_client');

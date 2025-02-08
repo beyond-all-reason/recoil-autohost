@@ -107,7 +107,9 @@ export async function getAccessToken(
 	}
 
 	// Now let's try to get a new access token
-	const basicToken = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+	const basicToken = Buffer.from(
+		`${encodeURIComponent(clientId)}:${encodeURIComponent(clientSecret)}`,
+	).toString('base64');
 	const tokenParams = new URLSearchParams({
 		grant_type: 'client_credentials',
 	});

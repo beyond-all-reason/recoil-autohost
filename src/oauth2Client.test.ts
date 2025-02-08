@@ -44,7 +44,7 @@ suite('oauth2client', () => {
 		let tokenErr: Error | undefined;
 		tokenHandler = async (req) => {
 			try {
-				equal(req.headers.authorization, 'Basic dXNlcjE6cGFzczE=');
+				equal(req.headers.authorization, 'Basic dXNlcjE6cGFzczElM0QlM0Q=');
 				equal(req.headers['content-type'], 'application/x-www-form-urlencoded');
 				const params = new URLSearchParams(req.body as string);
 				equal(params.get('grant_type'), 'client_credentials');
@@ -61,7 +61,7 @@ suite('oauth2client', () => {
 		const token = await getAccessToken(
 			`http://localhost:${PORT}`,
 			'user1',
-			'pass1',
+			'pass1==',
 			'tachyon.lobby',
 		);
 		if (tokenErr) throw tokenErr;
