@@ -36,6 +36,8 @@ yet fully ready for production deployments.
 
 ## Usage
 
+### Running Locally
+
 Autohost takes a single JSON configuration file as argument and starts the
 operation:
 
@@ -58,9 +60,43 @@ A minimal configuration file looks like:
 
 To see all options take a look at schema in [`src/config.ts`](./src/config.ts).
 
-Autohost expects existence of `engines` folder that contains folder with
-different engine versions, for example:
+### Running with Docker
 
+For production deployments, we recommend using Docker. See the [Docker Build Documentation](./docker-build/README.md) for detailed information about building and running the container.
+
+Quick start with Docker:
+```bash
+# Build the image
+./docker-build/build.sh
+
+# Run the container
+./docker-build/run.sh -c config.json
+```
+
+### Testing
+
+For testing and development, we provide a test case environment that includes a mock Tachyon server. See the [Test Case Documentation](./testcase/README.md) for detailed information about running tests and example usage.
+
+Quick test start:
+```bash
+# Run the test case
+./testcase/testcase_run.sh -debug
+```
+
+## Directory Structure
+
+Autohost expects the following directory structure:
+
+```
+.
+├── config.json
+├── engines/
+│   └── [engine binaries]
+└── instances/
+    └── [battle instances]
+```
+
+For example:
 ```console
 $ tree engines -L 1
 engines
@@ -103,123 +139,7 @@ npm run start config.dev.json | npx pino-pretty
 ```
 
 The fake prints all tachyon messages it receives and sends JSON messages it
-gets via HTTP to the connected autohost. See below example session to see how
-`autohost/subscribeUpdates` and `autohost/start` are send to first connected
-autohost.
-
-#### Example session
-
-1. Set up BAR checkout as described in the main game repository
-   https://github.com/beyond-all-reason/Beyond-All-Reason.
-2. Make sure you have "Quicksilver Remake 1.24" map installed.
-3. Fetch engine
-
-    ```shell
-    curl -L https://github.com/beyond-all-reason/spring/releases/download/spring_bar_%7BBAR105%7D105.1.1-2590-gb9462a0/spring_bar_.BAR105.105.1.1-2590-gb9462a0_linux-64-minimal-portable.7z -o engine.7z
-    7z x engine.7z -o'engines/105.1.1-2590-gb9462a0 BAR105'
-    ```
-
-4. Start tachyon fake and autohost as described above.
-5. Subscribe to all updates from autohost.
-
-    ```shell
-    printf '{"since":%d}' $(date '+%s%6N') | curl --json @- http://127.0.0.1:8084/request/0/subscribeUpdates
-    ```
-
-6. Create a simple start script request in `start.json`:
-
-    <!-- prettier-ignore -->
-    ```json
-    {
-      "battleId": null,
-      "engineVersion": "105.1.1-2590-gb9462a0 BAR105",
-      "gameName": "Beyond All Reason $VERSION",
-      "mapName": "Quicksilver Remake 1.24",
-      "startPosType": "ingame",
-      "allyTeams": [{
-        "startBox": { "top": 0, "bottom": 0.3, "left": 0, "right": 1 },
-        "teams": [{
-          "faction": "Cortex",
-          "bots": [{
-            "aiShortName": "BARb",
-            "aiVersion": "stable",
-            "hostUserId": "11111"
-          }]
-        }]
-      }, {
-        "startBox": { "top": 0.7, "bottom": 1, "left": 0, "right": 1 },
-        "teams": [{
-          "faction": "Armada",
-          "players": [{
-            "userId": "11111",
-            "name": "Player",
-            "password": "password1"
-          }]
-        }]
-      }]
-    }
-    ```
-
-7. Start the engine dedicated in autohost:
-
-    ```shell
-    jq ".battleId = \"$(uuidgen -r)\"" start.json | curl --json @- http://127.0.0.1:8084/request/0/start
-    ```
-
-8. Join the game yourself, using the port that will be printed on the tachyon
-   server fake output and user name and password from `start.json`:
-
-    ```shell
-    ./engines/105.1.1-2590-gb9462a0\ BAR105/spring --isolation --write-dir "{absolute path to your data folder}""  spring://Player:password1@127.0.0.1:20001
-    ```
-
-> [!NOTE]
-> Until [a fix](https://github.com/beyond-all-reason/spring/pull/1876) gets
-> released in some of the future engine version, you have only 30s between
-> autohost starts the game and you connect to it.
-
-### Running the Test Case with Docker
-
-The repository includes a test case script that automates the example session above using Docker. This provides a consistent environment for testing the autohost service.
-
-For detailed information about the test case, including prerequisites, configuration, and troubleshooting, see the [Test Case Documentation](./testcase/README.md).
-
-#### Prerequisites
-
-1. Docker installed on your system
-2. Required system packages:
-   ```bash
-   # For Ubuntu/Debian
-   sudo apt-get update
-   sudo apt-get install -y p7zip-full curl jq uuid-runtime
-   ```
-
-#### Running the Test
-
-1. Navigate to the project root directory:
-   ```bash
-   cd /path/to/recoil-autohost
-   ```
-
-2. Run the test script:
-   ```bash
-   ./testcase/testcase_run.sh
-   ```
-
-The script will:
-- Create necessary directories
-- Download and extract the required engine version
-- Start the Docker services
-- Subscribe to updates
-- Start a test battle
-- Provide instructions for joining the game
-
-To view logs while the test is running:
-```bash
-docker compose logs -f
-```
-
-To stop the test environment, press Ctrl+C. The script will automatically clean up all resources.
+gets via HTTP to the connected autohost. See the [Test Case Documentation](./testcase/README.md) for an example session showing how to use the fake server.
 
 [Recoil]: https://github.com/beyond-all-reason/spring
 [Tachyon]: https://github.com/beyond-all-reason/tachyon

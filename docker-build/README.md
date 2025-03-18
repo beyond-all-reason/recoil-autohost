@@ -1,6 +1,6 @@
 # Docker Build Configuration
 
-This directory contains Docker-related files for building and running the Recoil Autohost service.
+This directory contains Docker-related files for building and running the Recoil Autohost service. For general information about the Recoil Autohost service, see the [main README](../README.md). For information about testing with Docker, see the [Test Case Documentation](../testcase/README.md).
 
 ## Files
 
@@ -94,6 +94,10 @@ The container expects the following directory structure in your project root:
     └── [battle instances]
 ```
 
+## Configuration
+
+The service uses a `config.json` file for all configuration settings. The file should be mounted into the container at `/app/config.json`. See the [main README](../README.md) for configuration options and examples.
+
 ## Health Check
 
 The container includes a health check that monitors the service on port 8084. The health check:
@@ -101,35 +105,6 @@ The container includes a health check that monitors the service on port 8084. Th
 - Has a timeout of 10 seconds
 - Retries 3 times before marking unhealthy
 - Has a 10-second grace period on startup
-
-## Environment Variables
-
-The service supports two distinct configuration modes:
-
-### Container Mode
-When `CONTAINERENV=true`, the service will exclusively use environment variables for configuration:
-
-Required Environment Variables:
-- `CONTAINERENV`: Set to "true" to enable container mode
-- `TACHYON_SERVER`: Hostname of the tachyon server
-- `AUTH_CLIENT_ID`: OAuth2 client ID
-- `AUTH_CLIENT_SECRET`: OAuth2 client secret
-- `HOSTING_IP`: IP used for hosting battles
-
-Optional Environment Variables:
-- `TACHYON_SERVER_PORT`: Port for tachyon server
-- `USE_SECURE_CONNECTION`: Use HTTPS/WSS (true/false)
-- `MAX_RECONNECT_DELAY_SECONDS`: Maximum reconnection delay (default: 30)
-- `ENGINE_SETTINGS`: JSON string of engine settings
-- `MAX_BATTLES`: Maximum concurrent battles (default: 50)
-- `MAX_UPDATES_SUBSCRIPTION_AGE_SECONDS`: Update subscription age (default: 600)
-- `ENGINE_START_PORT`: Starting port for engine instances (default: 20000)
-- `ENGINE_AUTOHOST_START_PORT`: Starting port for autohost (default: 22000)
-- `MAX_PORTS_USED`: Maximum ports to use (default: 1000)
-- `ENGINE_INSTALL_TIMEOUT_SECONDS`: Engine installation timeout (default: 600)
-
-### Traditional Mode
-When `CONTAINERENV` is not set or is "false", the service will use a config.json file for configuration.
 
 ## Volumes
 
@@ -168,4 +143,8 @@ The following directories are mounted as volumes:
 4. To stop the container:
    ```bash
    docker stop recoil-autohost
-   ``` 
+   ```
+
+## Testing
+
+For testing the Docker container, see the [Test Case Documentation](../testcase/README.md) which includes a complete example of running the service in a test environment. 
