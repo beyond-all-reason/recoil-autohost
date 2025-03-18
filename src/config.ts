@@ -1,6 +1,8 @@
-import { readFile } from 'node:fs/promises';
-import { Ajv, JSONSchemaType } from 'ajv';
-import ajvFormats from 'ajv-formats';
+import fs from 'node:fs/promises';
+import { Ajv, JSONSchemaType, type Plugin } from 'ajv';
+import ajvFormats, { type FormatsPluginOptions } from 'ajv-formats';
+// https://github.com/ajv-validator/ajv-formats/issues/85#issuecomment-2377962689
+const addFormats = ajvFormats as unknown as Plugin<FormatsPluginOptions>;
 
 export interface Config {
 	tachyonServer: string;
@@ -19,7 +21,7 @@ export interface Config {
 	engineInstallTimeoutSeconds: number;
 }
 
-const ConfigSchema = {
+const ConfigSchema: JSONSchemaType<Config> = {
 	$id: 'Config',
 	type: 'object',
 	properties: {
@@ -28,12 +30,12 @@ const ConfigSchema = {
 			description: 'Hostname of the tachyon server to connect to.',
 		},
 		tachyonServerPort: {
-			type: ['number', 'null'],
+			type: 'number',
 			description:
 				'Optional port of the tachyon server, by default standard HTTPS port will be used.',
 		},
 		useSecureConnection: {
-			type: ['boolean', 'null'],
+			type: 'boolean',
 			description:
 				'Whatever to use HTTPS/WSS to connect to tachyon server. Defaults to true, except for localhost.',
 		},
@@ -106,20 +108,18 @@ const ConfigSchema = {
 	},
 	required: ['tachyonServer', 'authClientId', 'authClientSecret', 'hostingIP'],
 	additionalProperties: true,
-} as const;
+};
 
-const ajv = new Ajv({ strict: true, useDefaults: true });
-(ajvFormats as any)(ajv);
+const ajv = new Ajv({ strict: true, useDefaults: true, coerceTypes: true });
+addFormats(ajv);
 const validateConfig = ajv.compile(ConfigSchema);
 
 export async function loadConfig(path: string): Promise<Config> {
-	try {
-		const fileConfig = JSON.parse(await readFile(path, 'utf-8')) as Config;
-		if (!validateConfig(fileConfig)) {
-			throw new Error('Invalid file configuration: ' + ajv.errorsText(validateConfig.errors));
-		}
-		return fileConfig;
-	} catch (err: any) {
-		throw new Error(`Failed to load config file: ${err.message}`);
+	const config = JSON.parse(await fs.readFile(path, 'utf-8'));
+	if (!validateConfig(config)) {
+		throw new Error('Invalid config', {
+			cause: new Error(ajv.errorsText(validateConfig.errors)),
+		});
 	}
+	return config;
 }
