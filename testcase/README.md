@@ -1,122 +1,146 @@
-# Test Case
+# Recoil Autohost Test Case
 
-This directory contains the test case for the Recoil Autohost service, including configuration files and the test runner script.
+This directory contains a test suite for validating the basic connectivity and functionality of the Recoil Autohost service.
 
-## Architecture
+## Quick Start
+
+```bash
+# Install prerequisites (Ubuntu/Debian)
+sudo apt-get update && sudo apt-get install -y \
+    docker.io \
+    docker-compose \
+    curl \
+    jq
+
+# Run the test (from project root)
+sudo ./testcase/testcase_run.sh -debug
+```
+
+## Test Environment
 
 The test environment consists of two Docker containers:
 
-1. `tachyon-fake`: A minimal implementation of the Tachyon lobby server for testing
-   - Built from `testcase/tachyonfake/Dockerfile`
+1. `tachyon-fake`: A mock Tachyon lobby server
+   - Provides authentication and basic lobby functionality
    - Runs on port 8084
-   - Provides a mock lobby server interface
-   - Located in the `tachyonfake` directory
+   - Includes health check endpoint
 
-2. `recoil-autohost`: The main autohost service
-   - Built from `docker-build/Dockerfile`
-   - Connects to the tachyon-fake server
-   - Manages game instances and engine files
-   - Uses ports 20001-20010 for game connections
+2. `recoil-autohost`: The service being tested
+   - Connects to the mock Tachyon server
+   - Validates connection and API functionality
 
-The containers communicate through a Docker network (`autohost-network`), and the tachyon-fake server must be healthy before the autohost service starts.
+## Test Script Usage
 
-## Prerequisites
-
-1. Docker and Docker Compose installed on your system
-2. Required system packages:
-   ```bash
-   # For Ubuntu/Debian
-   sudo apt-get update
-   sudo apt-get install -y p7zip-full curl jq uuid-runtime
-   ```
-
-## Files
-
-### config.dev.json
-Configuration file for the autohost service (located in project root):
-- `tachyonServer`: Set to "localhost" for local testing
-- `tachyonServerPort`: Port for the tachyon server (8084)
-- `authClientId`: Client ID for authentication
-- `authClientSecret`: Client secret for authentication
-- `hostingIP`: IP address where the service is hosted
-- `engineSettings`: Additional engine configuration options
-
-### start.json
-Configuration for the test battle:
-- `battleId`: Generated UUID for the battle
-- `engineVersion`: Version of the game engine to use
-- `gameName`: Name of the game
-- `mapName`: Name of the map to use
-- `startPosType`: Type of starting positions
-- `allyTeams`: Configuration for teams and players
-
-### docker-compose.yml
-Defines the Docker services:
-- Sets up the tachyon-fake server
-- Configures the recoil-autohost service
-- Creates a network for container communication
-- Manages volume mounts and port mappings
-- Uses config.dev.json for autohost configuration
-
-### testcase_run.sh
-The main test runner script that:
-1. Sets up the test environment
-2. Downloads and extracts the required engine version
-3. Starts the Docker services (including tachyon-fake)
-4. Subscribes to updates
-5. Starts a test battle
-6. Provides instructions for joining the game
-7. Handles cleanup on exit
-
-## Usage
-
-1. Navigate to the project root directory
-2. Run the test script:
-   ```bash
-   ./testcase/testcase_run.sh
-   ```
-
-The script will:
-- Create necessary directories
-- Download and extract the required engine version
-- Start both Docker services (tachyon-fake and recoil-autohost)
-- Subscribe to updates
-- Start a test battle
-- Provide instructions for joining the game
-
-To view logs while the test is running:
 ```bash
-docker compose logs -f
+sudo ./testcase_run.sh [-debug] [-timeout seconds]
 ```
 
-To stop the test environment, press Ctrl+C. The script will automatically clean up all resources.
+### Options
 
-## Cleanup
+- `-debug`: Enable detailed logging output (recommended for troubleshooting)
+- `-timeout`: Set custom test timeout in seconds (default: 60)
 
-The script includes comprehensive cleanup that runs in all scenarios:
-- Normal exit
-- Script errors
+### Examples
+
+```bash
+# Basic test
+sudo ./testcase_run.sh
+
+# Test with debug output
+sudo ./testcase_run.sh -debug
+
+# Test with longer timeout
+sudo ./testcase_run.sh -timeout 120
+
+# Test with both debug and custom timeout
+sudo ./testcase_run.sh -debug -timeout 120
+```
+
+## What the Test Validates
+
+1. **Service Startup**
+   - Docker containers start successfully
+   - Services are healthy and responsive
+
+2. **Connection**
+   - Recoil-autohost connects to Tachyon server
+   - Connection is stable and authenticated
+
+3. **API Functionality**
+   - OAuth2 token endpoint works
+   - Updates subscription endpoint works
+
+## Test Output
+
+The test provides clear visual feedback:
+- ✓ Green checkmarks for successful steps
+- ✗ Red X's for failures
+- ➜ Blue arrows for progress updates
+- Yellow headers for test sections
+
+Example successful output:
+```
+=== Test Environment Setup ===
+➜ Starting Docker services...
+✓ Containers are ready
+✓ Docker services started
+
+=== Connection Setup ===
+✓ Connection established successfully
+
+=== API Test ===
+✓ OAuth2 token endpoint working
+✓ Updates subscription working
+
+=== Test Complete ===
+✓ All core functionality tests passed
+
+=== Cleanup ===
+✓ Test completed successfully
+```
+
+## Automatic Cleanup
+
+The test script automatically cleans up all resources, regardless of test outcome:
+- Stops and removes Docker containers
+- Cleans up the `engines` directory
+- Cleans up the `instances` directory
+- Removes Docker networks
+
+Cleanup triggers on:
+- Normal test completion
+- Test failures
+- Timeouts
 - User interruption (Ctrl+C)
-- Failed Docker operations
-- Failed engine download/extraction
-- Failed API calls
-
-All resources will be cleaned up, including:
-- Docker containers and networks
-- Downloaded engine files
-- Temporary files
-- `engines` directory and its contents
-- `instances` directory and its contents
 
 ## Troubleshooting
 
-1. If the service fails to start:
-   - Check Docker logs: `docker compose logs recoil-autohost`
-   - Check tachyon-fake logs: `docker compose logs tachyon-fake`
-   - Verify config.dev.json exists and is valid
-   - Ensure all required ports are available
+If the test fails:
 
-2. If cleanup fails:
-   - Manually remove the `engines` and `instances` directories
-   - Stop any running Docker containers: `docker compose down`
-   - Check for any remaining temporary files 
+1. **Run with debug output**
+   ```bash
+   sudo ./testcase_run.sh -debug
+   ```
+
+2. **Check Docker logs**
+   ```bash
+   docker compose logs recoil-autohost
+   docker compose logs tachyon-fake
+   ```
+
+3. **Verify prerequisites**
+   - Docker and Docker Compose are installed and running
+   - Required ports (8084) are available
+   - User has sudo privileges
+
+4. **Common Issues**
+   - OAuth2 credentials mismatch
+   - Network connectivity problems
+   - Port conflicts
+   - Insufficient permissions
+
+## Configuration Files
+
+- `docker-compose.yml`: Defines the test environment
+- `config.dev.json`: Configures the Recoil Autohost service
+- `tachyonfake/`: Contains the mock Tachyon server implementation 

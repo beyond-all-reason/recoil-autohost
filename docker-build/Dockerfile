@@ -1,5 +1,5 @@
 # Build stage
-FROM node:22-alpine AS builder
+FROM node:22-slim AS builder
 
 # Set working directory
 WORKDIR /app
@@ -17,13 +17,13 @@ COPY . .
 RUN npm run build
 
 # Runtime stage
-FROM node:22-alpine
+FROM node:22-slim
 
 # Install tini
-RUN apk add --no-cache tini
+RUN apt-get update && apt-get install -y tini curl && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
-RUN addgroup -S recoil && adduser -S recoil -G recoil
+RUN groupadd -r recoil && useradd -r -g recoil recoil
 
 # Set working directory
 WORKDIR /app
@@ -33,24 +33,20 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/node_modules ./node_modules
 
-# Create necessary directories
-RUN mkdir -p /app/engines /app/instances \
-    && chown -R recoil:recoil /app
+# Create necessary directories and set permissions
+RUN mkdir -p /app/engines /app/instances && \
+    chown -R recoil:recoil /app/engines /app/instances && \
+    chmod -R 755 /app/engines /app/instances
+
+# Copy and set permissions for entrypoint script
+COPY docker-build/docker-entrypoint.sh /app/
+RUN chmod +x /app/docker-entrypoint.sh && \
+    chown recoil:recoil /app/docker-entrypoint.sh
 
 # Switch to non-root user
 USER recoil
 
-# Expose the port used by the autohost service
-EXPOSE 8084
-
 # Set environment variables
 ENV NODE_ENV=production
 
-# Create a volume for engines and instances
-VOLUME ["/app/engines", "/app/instances"]
-
-# Use tini as entrypoint
-ENTRYPOINT ["/sbin/tini", "--"]
-
-# Start the application
-CMD ["node", "dist/main.js"] 
+ENTRYPOINT ["/usr/bin/tini", "-s", "--", "/app/docker-entrypoint.sh"] 

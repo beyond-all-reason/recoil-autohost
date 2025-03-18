@@ -1,0 +1,11 @@
+# Engine files
+engines/
+
+# Instance files
+instances/
+
+# Temporary log files
+test_logs/
+
+# Downloaded engine archive
+engine.7z 

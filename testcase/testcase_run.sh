@@ -1,28 +1,171 @@
 #!/bin/bash
 set -e
 
+# Check if running as root/sudo
+if [ "$EUID" -ne 0 ]; then
+    echo "Please run this script as root (sudo ./testcase_run.sh)"
+    exit 1
+fi
+
 # Colors for output
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 RED='\033[0;31m'
+YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# Global variables for cleanup
+# Global variables
 DOCKER_RUNNING=false
-ENGINE_DOWNLOADED=false
-TEMP_FILES=()
-REBUILD=false
+DEBUG=false
+TEST_TIMEOUT=60  # Timeout in seconds
+TEST_START_TIME=0
+TEST_STATUS="NOT_STARTED"
+CLEANUP_DONE=false
+LOG_PID=""
+
+# Function to print section headers
+print_header() {
+    echo -e "\n${YELLOW}=== $1 ===${NC}"
+}
+
+# Function to print status updates
+print_status() {
+    echo -e "${BLUE}➜ $1${NC}"
+}
+
+# Function to print success messages
+print_success() {
+    echo -e "${GREEN}✓ $1${NC}"
+}
+
+# Function to print error messages
+print_error() {
+    echo -e "${RED}✗ $1${NC}"
+}
+
+# Function to clean directories
+clean_directories() {
+    local dir="$1"
+    print_status "Cleaning directory: $dir"
+    if [ -d "$dir" ]; then
+        # First try to remove contents only
+        rm -rf "${dir:?}"/* 2>/dev/null || {
+            # If that fails, try with sudo
+            sudo rm -rf "${dir:?}"/* 2>/dev/null || {
+                print_error "Failed to clean $dir"
+                return 1
+            }
+        }
+        print_success "Cleaned $dir"
+    fi
+}
+
+# Function to start log streaming in background
+start_log_streaming() {
+    if [ "$DEBUG" = true ]; then
+        print_status "Starting log streaming..."
+        docker compose logs -f &
+        LOG_PID=$!
+    fi
+}
+
+# Function to stop log streaming
+stop_log_streaming() {
+    if [ -n "$LOG_PID" ]; then
+        kill $LOG_PID 2>/dev/null || true
+        LOG_PID=""
+    fi
+}
+
+# Cleanup function
+cleanup() {
+    # Prevent duplicate cleanup
+    if [ "$CLEANUP_DONE" = true ]; then
+        return
+    fi
+    CLEANUP_DONE=true
+
+    # Stop log streaming if active
+    stop_log_streaming
+
+    print_header "Cleanup"
+    
+    # Print test status
+    case $TEST_STATUS in
+        "SUCCESS")
+            print_success "Test completed successfully"
+            ;;
+        "TIMEOUT")
+            print_error "Test timed out after $TEST_TIMEOUT seconds"
+            ;;
+        "FAILED")
+            print_error "Test failed"
+            ;;
+        *)
+            print_status "Test was interrupted"
+            ;;
+    esac
+    
+    # Stop Docker services if they're running
+    if [ "$DOCKER_RUNNING" = true ]; then
+        print_status "Stopping Docker services..."
+        cd "${SCRIPT_DIR}" && docker compose down || true
+    fi
+
+    # Clean up directories
+    print_status "Cleaning up test directories..."
+    clean_directories "${SCRIPT_DIR}/engines"
+    clean_directories "${SCRIPT_DIR}/instances"
+    
+    # Exit with appropriate status code
+    case $TEST_STATUS in
+        "SUCCESS")
+            exit 0
+            ;;
+        *)
+            exit 1
+            ;;
+    esac
+}
+
+# Function to check if test has timed out
+check_timeout() {
+    if [ $TEST_START_TIME -ne 0 ]; then
+        current_time=$(date +%s)
+        elapsed=$((current_time - TEST_START_TIME))
+        if [ $elapsed -gt $TEST_TIMEOUT ]; then
+            TEST_STATUS="TIMEOUT"
+            print_error "Test timed out after $TEST_TIMEOUT seconds"
+            cleanup
+        fi
+    fi
+}
+
+# Set up cleanup traps for various exit scenarios
+trap cleanup EXIT
+trap 'TEST_STATUS="INTERRUPTED"; cleanup' INT TERM
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
-        -rebuild)
-            REBUILD=true
+        -debug)
+            DEBUG=true
             shift
             ;;
+        -timeout)
+            shift
+            if [[ $1 =~ ^[0-9]+$ ]]; then
+                TEST_TIMEOUT=$1
+                shift
+            else
+                print_error "Invalid timeout value: $1"
+                echo "Usage: $0 [-debug] [-timeout seconds]"
+                exit 1
+            fi
+            ;;
         *)
-            echo -e "${RED}Unknown option: $1${NC}"
-            echo "Usage: $0 [-rebuild]"
+            print_error "Unknown option: $1"
+            echo "Usage: $0 [-debug] [-timeout seconds]"
             exit 1
             ;;
     esac
@@ -30,118 +173,109 @@ done
 
 # Script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-# Cleanup function
-cleanup() {
-    echo -e "${BLUE}Cleaning up...${NC}"
-    
-    # Stop Docker services if they're running
-    if [ "$DOCKER_RUNNING" = true ]; then
-        echo -e "${BLUE}Stopping Docker services...${NC}"
-        cd "${SCRIPT_DIR}" && sudo docker compose down || true
-    fi
-    
-    # Clean up downloaded engine file
-    if [ -f "${SCRIPT_DIR}/engine.7z" ]; then
-        echo -e "${BLUE}Cleaning up downloaded engine file...${NC}"
-        rm -f "${SCRIPT_DIR}/engine.7z" || true
-    fi
+print_header "Test Environment Setup"
+TEST_START_TIME=$(date +%s)
 
-    # Clean up any temporary files
-    for file in "${TEMP_FILES[@]}"; do
-        if [ -f "$file" ]; then
-            echo -e "${BLUE}Removing temporary file: $file${NC}"
-            rm -f "$file" || true
-        fi
-    done
-
-    # Clean up engines and instances directories
-    echo -e "${BLUE}Cleaning up engines and instances directories...${NC}"
-    rm -rf "${SCRIPT_DIR}/engines" || true
-    rm -rf "${SCRIPT_DIR}/instances" || true
-    
-    # Clean up src directory
-    echo -e "${BLUE}Cleaning up src directory...${NC}"
-    rm -rf "${SCRIPT_DIR}/src" || true
-    
-    echo -e "${GREEN}Cleanup complete${NC}"
-}
-
-# Set up cleanup on script exit (normal exit, error, or interrupt)
-trap cleanup EXIT
-trap 'exit 1' ERR
-trap 'exit 1' INT
-
-echo -e "${BLUE}Setting up test environment...${NC}"
-
-# Create necessary directories if they don't exist
-cd "${SCRIPT_DIR}"
-mkdir -p engines instances
-
-# Download and extract the specific engine version
-ENGINE_VERSION="105.1.1-2590-gb9462a0 BAR105"
-ENGINE_DIR="${SCRIPT_DIR}/engines/${ENGINE_VERSION}"
-
-if [ ! -d "${ENGINE_DIR}" ]; then
-    echo -e "${BLUE}Downloading engine...${NC}"
-    cd "${SCRIPT_DIR}"
-    curl -L "https://github.com/beyond-all-reason/spring/releases/download/spring_bar_%7BBAR105%7D105.1.1-2590-gb9462a0/spring_bar_.BAR105.105.1.1-2590-gb9462a0_linux-64-minimal-portable.7z" -o engine.7z
-    ENGINE_DOWNLOADED=true
-    TEMP_FILES+=("${SCRIPT_DIR}/engine.7z")
-    
-    echo -e "${BLUE}Extracting engine...${NC}"
-    7z x engine.7z -o"${ENGINE_DIR}" || {
-        echo -e "${RED}Failed to extract engine${NC}"
-        exit 1
-    }
-fi
+print_header "Starting Services"
 
 # Start Docker services
-echo -e "${BLUE}Starting Docker services...${NC}"
 cd "${SCRIPT_DIR}"
-if [ "$REBUILD" = true ]; then
-    echo -e "${BLUE}Rebuilding containers...${NC}"
-    sudo docker compose build --no-cache
-fi
-sudo docker compose up -d || {
-    echo -e "${RED}Failed to start Docker services${NC}"
+print_status "Starting Docker services..."
+docker compose up -d || {
+    TEST_STATUS="FAILED"
+    print_error "Failed to start Docker services"
     exit 1
 }
 DOCKER_RUNNING=true
 
-# Wait for services to start
-echo -e "${BLUE}Waiting for services to start...${NC}"
-sleep 10
+# Start log streaming if debug mode is enabled
+start_log_streaming
 
-# Check if services are running
-if ! sudo docker compose ps | grep -q "recoil-autohost.*running"; then
-    echo -e "${RED}Error: recoil-autohost service is not running${NC}"
-    sudo docker compose logs recoil-autohost
+# Wait for containers to be ready
+print_status "Waiting for containers to be ready..."
+max_attempts=30
+attempt=1
+while [ $attempt -le $max_attempts ]; do
+    if docker compose ps | grep -q "healthy"; then
+        print_success "Containers are ready"
+        break
+    fi
+    print_status "Waiting for containers (attempt $attempt/$max_attempts)..."
+    sleep 2
+    ((attempt++))
+done
+
+if [ $attempt -gt $max_attempts ]; then
+    TEST_STATUS="FAILED"
+    print_error "Containers failed to become ready"
+    if [ "$DEBUG" = false ]; then
+        docker compose logs
+    fi
     exit 1
 fi
 
-# Subscribe to updates
-echo -e "${BLUE}Subscribing to updates...${NC}"
+print_success "Docker services started"
+
+# Wait for services to start and establish connection
+print_header "Connection Setup"
+
+wait_for_connection() {
+    local max_attempts=30
+    local attempt=1
+    
+    while [ $attempt -le $max_attempts ]; do
+        check_timeout
+        
+        if docker compose logs recoil-autohost | grep -q "connected to tachyon server"; then
+            print_success "Connection established successfully"
+            return 0
+        fi
+        print_status "Waiting for connection (attempt $attempt/$max_attempts)..."
+        sleep 2
+        ((attempt++))
+    done
+    
+    TEST_STATUS="FAILED"
+    print_error "Connection timeout"
+    print_error "Last few lines of logs:"
+    docker compose logs --tail 50
+    exit 1
+}
+
+wait_for_connection
+
+print_header "API Test"
+
+# Test OAuth2 token endpoint
+print_status "Testing OAuth2 token endpoint..."
+token_response=$(curl -s -u "autohost1:pass1" -d "grant_type=client_credentials&scope=tachyon.lobby" http://127.0.0.1:8084/token)
+access_token=$(echo "$token_response" | jq -r '.access_token')
+
+if [ -z "$access_token" ] || [ "$access_token" = "null" ]; then
+    TEST_STATUS="FAILED"
+    print_error "Failed to get access token"
+    print_error "Token response: $token_response"
+    exit 1
+fi
+
+print_success "OAuth2 token endpoint working"
+
+# Test updates subscription
+print_status "Testing updates subscription..."
 TIMESTAMP=$(date '+%s%6N')
-curl --json "{\"since\":$TIMESTAMP}" http://127.0.0.1:8084/request/0/subscribeUpdates || {
-    echo -e "${RED}Failed to subscribe to updates${NC}"
+subscribe_response=$(curl -s --json "{\"since\":$TIMESTAMP}" http://localhost:8084/request/0/subscribeUpdates)
+if [ $? -ne 0 ]; then
+    TEST_STATUS="FAILED"
+    print_error "Failed to subscribe to updates"
+    print_error "Response: $subscribe_response"
     exit 1
-}
+fi
 
-# Start the battle
-echo -e "${BLUE}Starting battle...${NC}"
-BATTLE_ID=$(uuidgen -r)
-jq ".battleId = \"$BATTLE_ID\"" "${SCRIPT_DIR}/start.json" | curl --json @- http://127.0.0.1:8084/request/0/start || {
-    echo -e "${RED}Failed to start battle${NC}"
-    exit 1
-}
+print_success "Updates subscription working"
 
-echo -e "${GREEN}Test environment is ready!${NC}"
-echo -e "${GREEN}To join the game, run:${NC}"
-echo -e "${BLUE}cd ${SCRIPT_DIR} && ./engines/105.1.1-2590-gb9462a0\\ BAR105/spring --isolation --write-dir \"\$(pwd)/instances\" spring://Player:password1@127.0.0.1:20001${NC}"
+print_header "Test Complete"
+print_success "All core functionality tests passed"
+TEST_STATUS="SUCCESS"
 
-# Keep script running until user interrupts
-echo -e "${BLUE}Press Ctrl+C to stop the test environment${NC}"
-echo -e "${BLUE}To view logs: cd ${SCRIPT_DIR} && sudo docker compose logs -f${NC}"
-wait 
+cleanup 

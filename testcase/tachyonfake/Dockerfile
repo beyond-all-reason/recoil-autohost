@@ -1,7 +1,7 @@
-FROM node:22-alpine
+FROM node:22-slim
 
-# Install curl for health check
-RUN apk add --no-cache curl
+# Install curl for health check and tini for process management
+RUN apt-get update && apt-get install -y curl tini && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -24,6 +24,9 @@ RUN npm run build
 
 # Expose the port that tachyon fake server uses
 EXPOSE 8084
+
+# Use Tini as entrypoint with subreaper mode
+ENTRYPOINT ["/usr/bin/tini", "-s", "--"]
 
 # Start the tachyon fake server
 CMD ["node", "dist/tachyonServer.fake.js"] 

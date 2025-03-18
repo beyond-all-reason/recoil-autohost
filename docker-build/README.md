@@ -4,10 +4,11 @@ This directory contains Docker-related files for building and running the Recoil
 
 ## Files
 
-- `Dockerfile`: Multi-stage build configuration using Node.js 22 Alpine
+- `Dockerfile`: Multi-stage build configuration using Node.js 22 Debian-slim
 - `build.sh`: Script to build the Docker image
 - `run.sh`: Script to run the container with configurable options
 - `docker-compose.yml`: Docker Compose configuration for easy deployment
+- `docker-entrypoint.sh`: Entrypoint script for container initialization and permissions
 
 ## Prerequisites
 
@@ -15,6 +16,7 @@ This directory contains Docker-related files for building and running the Recoil
 - Docker Compose (optional, for using docker-compose.yml)
 - A valid `config.json` file in the project root
 - An `engines` directory containing the game engine binaries
+- Host system with glibc support (required for Spring engine binaries)
 
 ## Building the Image
 
@@ -140,7 +142,8 @@ The following directories are mounted as volumes:
 
 - The container runs as a non-root user (recoil)
 - Uses tini as an init system for proper process management
-- Based on Alpine Linux for a minimal attack surface
+- Based on Debian-slim for better glibc compatibility
+- Permissions are managed by the entrypoint script
 
 ## Troubleshooting
 
@@ -148,13 +151,21 @@ The following directories are mounted as volumes:
    - The config.json file exists and is valid
    - The engines directory contains the required binaries
    - The port 8084 is not in use
+   - The entrypoint script has execute permissions
+   - The host system has glibc installed
+   - The mounted directories have correct permissions
 
 2. To view container logs:
    ```bash
    docker logs recoil-autohost
    ```
 
-3. To stop the container:
+3. To check container permissions:
+   ```bash
+   docker exec recoil-autohost ls -la /app/engines /app/instances
+   ```
+
+4. To stop the container:
    ```bash
    docker stop recoil-autohost
    ``` 

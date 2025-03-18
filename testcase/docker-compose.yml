@@ -1,10 +1,11 @@
-version: '3.8'
-
 services:
   tachyon-fake:
     build:
       context: ..
       dockerfile: testcase/tachyonfake/Dockerfile
+    init: true
+    environment:
+      - TINI_SUBREAPER=true
     ports:
       - "8084:8084"
     networks:
@@ -20,10 +21,11 @@ services:
     build:
       context: ..
       dockerfile: docker-build/Dockerfile
+    init: true
     volumes:
-      - ../engines:/app/engines
-      - ../instances:/app/instances
-      - ../src:/app/src
+      - ./engines:/app/engines:ro
+      - ./instances:/app/instances:rw
+    user: "1000:1000"  # Run as non-root user
     environment:
       - CONTAINERENV=true
       - TACHYON_SERVER=tachyon-fake
@@ -32,8 +34,11 @@ services:
       - AUTH_CLIENT_SECRET=pass1
       - HOSTING_IP=0.0.0.0
       - USE_SECURE_CONNECTION=false
+      - ENGINE_SETTINGS={"BindToIp":"0.0.0.0","AutohostIP":"0.0.0.0","InitialNetworkTimeout":"1000","LogFlushLevel":"0"}
+      - TINI_SUBREAPER=true
     ports:
       - "20001-20010:20001-20010"
+      - "22001-22010:22001-22010"
     depends_on:
       tachyon-fake:
         condition: service_healthy
