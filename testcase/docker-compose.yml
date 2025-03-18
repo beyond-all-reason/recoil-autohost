@@ -1,49 +1,34 @@
+version: '3'
 services:
   tachyon-fake:
     build:
-      context: ..
+      context: ../
       dockerfile: testcase/tachyonfake/Dockerfile
-    init: true
-    environment:
-      - TINI_SUBREAPER=true
     ports:
       - "8084:8084"
-    networks:
-      - autohost-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8084/health"]
-      interval: 5s
-      timeout: 3s
-      retries: 3
-      start_period: 5s
+      interval: 1s
+      timeout: 1s
+      retries: 5
+      start_period: 1s
 
   recoil-autohost:
     build:
-      context: ..
-      dockerfile: docker-build/Dockerfile
-    init: true
+      context: ../
+      dockerfile: testcase/autohost/Dockerfile
     volumes:
-      - ./engines:/app/engines:ro
-      - ./instances:/app/instances:rw
-    user: "1000:1000"  # Run as non-root user
-    environment:
-      - CONTAINERENV=true
-      - TACHYON_SERVER=tachyon-fake
-      - TACHYON_SERVER_PORT=8084
-      - AUTH_CLIENT_ID=autohost1
-      - AUTH_CLIENT_SECRET=pass1
-      - HOSTING_IP=0.0.0.0
-      - USE_SECURE_CONNECTION=false
-      - ENGINE_SETTINGS={"BindToIp":"0.0.0.0","AutohostIP":"0.0.0.0","InitialNetworkTimeout":"1000","LogFlushLevel":"0"}
-      - TINI_SUBREAPER=true
+      - ../config.dev.json:/app/config.json:ro
+      - ./test_logs:/app/logs
     ports:
-      - "20001-20010:20001-20010"
-      - "22001-22010:22001-22010"
+      - "20000-21000:20000-21000"
+      - "22000-23000:22000-23000"
+    environment:
+      - TINI_SUBREAPER=true
+    command: ["node", "dist/main.js", "/app/config.json"]
     depends_on:
       tachyon-fake:
         condition: service_healthy
-    networks:
-      - autohost-network
 
 networks:
   autohost-network:
