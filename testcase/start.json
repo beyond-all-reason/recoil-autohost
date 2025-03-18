@@ -1,0 +1,28 @@
+{
+  "battleId": null,
+  "engineVersion": "105.1.1-2590-gb9462a0 BAR105",
+  "gameName": "Beyond All Reason $VERSION",
+  "mapName": "Quicksilver Remake 1.24",
+  "startPosType": "ingame",
+  "allyTeams": [{
+    "startBox": { "top": 0, "bottom": 0.3, "left": 0, "right": 1 },
+    "teams": [{
+      "faction": "Cortex",
+      "bots": [{
+        "aiShortName": "BARb",
+        "aiVersion": "stable",
+        "hostUserId": "11111"
+      }]
+    }]
+  }, {
+    "startBox": { "top": 0.7, "bottom": 1, "left": 0, "right": 1 },
+    "teams": [{
+      "faction": "Armada",
+      "players": [{
+        "userId": "11111",
+        "name": "Player",
+        "password": "password1"
+      }]
+    }]
+  }]
+} 

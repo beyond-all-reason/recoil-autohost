@@ -4,7 +4,7 @@ This directory contains Docker-related files for building and running the Recoil
 
 ## Files
 
-- `Dockerfile`: Multi-stage build configuration using Alpine 3.21.3
+- `Dockerfile`: Multi-stage build configuration using Node.js 22 Alpine
 - `build.sh`: Script to build the Docker image
 - `run.sh`: Script to run the container with configurable options
 - `docker-compose.yml`: Docker Compose configuration for easy deployment
@@ -21,8 +21,30 @@ This directory contains Docker-related files for building and running the Recoil
 You can build the Docker image using either method:
 
 ### Using build.sh
+The `build.sh` script provides options for custom tagging and publishing to a registry:
+
 ```bash
+./docker-build/build.sh [OPTIONS]
+```
+
+Options:
+- `-t tag`: Specify a custom tag for the image (default: "latest")
+- `-p registry`: Specify a registry to publish to (e.g., "docker.io/username")
+- `-h`: Show help/usage information
+
+Examples:
+```bash
+# Basic build with default tag (latest)
 ./docker-build/build.sh
+
+# Build with custom tag
+./docker-build/build.sh -t v1.0.0
+
+# Build and publish to registry
+./docker-build/build.sh -t v1.0.0 -p docker.io/username
+
+# Show help
+./docker-build/build.sh -h
 ```
 
 ### Using Docker directly
@@ -80,7 +102,32 @@ The container includes a health check that monitors the service on port 8084. Th
 
 ## Environment Variables
 
-- `NODE_ENV`: Set to "production" by default
+The service supports two distinct configuration modes:
+
+### Container Mode
+When `CONTAINERENV=true`, the service will exclusively use environment variables for configuration:
+
+Required Environment Variables:
+- `CONTAINERENV`: Set to "true" to enable container mode
+- `TACHYON_SERVER`: Hostname of the tachyon server
+- `AUTH_CLIENT_ID`: OAuth2 client ID
+- `AUTH_CLIENT_SECRET`: OAuth2 client secret
+- `HOSTING_IP`: IP used for hosting battles
+
+Optional Environment Variables:
+- `TACHYON_SERVER_PORT`: Port for tachyon server
+- `USE_SECURE_CONNECTION`: Use HTTPS/WSS (true/false)
+- `MAX_RECONNECT_DELAY_SECONDS`: Maximum reconnection delay (default: 30)
+- `ENGINE_SETTINGS`: JSON string of engine settings
+- `MAX_BATTLES`: Maximum concurrent battles (default: 50)
+- `MAX_UPDATES_SUBSCRIPTION_AGE_SECONDS`: Update subscription age (default: 600)
+- `ENGINE_START_PORT`: Starting port for engine instances (default: 20000)
+- `ENGINE_AUTOHOST_START_PORT`: Starting port for autohost (default: 22000)
+- `MAX_PORTS_USED`: Maximum ports to use (default: 1000)
+- `ENGINE_INSTALL_TIMEOUT_SECONDS`: Engine installation timeout (default: 600)
+
+### Traditional Mode
+When `CONTAINERENV` is not set or is "false", the service will use a config.json file for configuration.
 
 ## Volumes
 

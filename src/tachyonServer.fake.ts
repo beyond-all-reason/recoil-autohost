@@ -183,6 +183,10 @@ export async function createTachyonServer(options?: TachyonServerOpts) {
 		};
 	});
 
+	server.get('/health', async (_req, resp) => {
+		return { status: 'ok' };
+	});
+
 	const validAccessTokens = new Set<string>();
 
 	server.post('/token', { onRequest: server.basicAuth }, async (req, resp) => {

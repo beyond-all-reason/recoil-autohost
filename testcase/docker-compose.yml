@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  tachyon-fake:
+    build:
+      context: ..
+      dockerfile: testcase/tachyonfake/Dockerfile
+    ports:
+      - "8084:8084"
+    networks:
+      - autohost-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8084/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  recoil-autohost:
+    build:
+      context: ..
+      dockerfile: docker-build/Dockerfile
+    volumes:
+      - ../engines:/app/engines
+      - ../instances:/app/instances
+      - ../src:/app/src
+    environment:
+      - CONTAINERENV=true
+      - TACHYON_SERVER=tachyon-fake
+      - TACHYON_SERVER_PORT=8084
+      - AUTH_CLIENT_ID=autohost1
+      - AUTH_CLIENT_SECRET=pass1
+      - HOSTING_IP=0.0.0.0
+      - USE_SECURE_CONNECTION=false
+    ports:
+      - "20001-20010:20001-20010"
+    depends_on:
+      tachyon-fake:
+        condition: service_healthy
+    networks:
+      - autohost-network
+
+networks:
+  autohost-network:
+    driver: bridge 

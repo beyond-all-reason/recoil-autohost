@@ -95,7 +95,7 @@ To start the service run
 npm run start-tachyon-fake | npx pino-pretty
 ```
 
-The service will listed for autohost on port 8084 and [`config.dev.json`](./config.dev.json)
+The service will listen for autohost on port 8084 and [`config.dev.json`](./config.dev.json)
 contains the config that will make autohost connect to it:
 
 ```
@@ -177,6 +177,49 @@ autohost.
 > Until [a fix](https://github.com/beyond-all-reason/spring/pull/1876) gets
 > released in some of the future engine version, you have only 30s between
 > autohost starts the game and you connect to it.
+
+### Running the Test Case with Docker
+
+The repository includes a test case script that automates the example session above using Docker. This provides a consistent environment for testing the autohost service.
+
+For detailed information about the test case, including prerequisites, configuration, and troubleshooting, see the [Test Case Documentation](./testcase/README.md).
+
+#### Prerequisites
+
+1. Docker installed on your system
+2. Required system packages:
+   ```bash
+   # For Ubuntu/Debian
+   sudo apt-get update
+   sudo apt-get install -y p7zip-full curl jq uuid-runtime
+   ```
+
+#### Running the Test
+
+1. Navigate to the project root directory:
+   ```bash
+   cd /path/to/recoil-autohost
+   ```
+
+2. Run the test script:
+   ```bash
+   ./testcase/testcase_run.sh
+   ```
+
+The script will:
+- Create necessary directories
+- Download and extract the required engine version
+- Start the Docker services
+- Subscribe to updates
+- Start a test battle
+- Provide instructions for joining the game
+
+To view logs while the test is running:
+```bash
+docker compose logs -f
+```
+
+To stop the test environment, press Ctrl+C. The script will automatically clean up all resources.
 
 [Recoil]: https://github.com/beyond-all-reason/spring
 [Tachyon]: https://github.com/beyond-all-reason/tachyon

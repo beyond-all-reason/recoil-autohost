@@ -1,8 +1,6 @@
-import fs from 'node:fs/promises';
-import { Ajv, JSONSchemaType, type Plugin } from 'ajv';
-import ajvFormats, { type FormatsPluginOptions } from 'ajv-formats';
-// https://github.com/ajv-validator/ajv-formats/issues/85#issuecomment-2377962689
-const addFormats = ajvFormats as unknown as Plugin<FormatsPluginOptions>;
+import { readFile } from 'node:fs/promises';
+import { Ajv, JSONSchemaType } from 'ajv';
+import ajvFormats from 'ajv-formats';
 
 export interface Config {
 	tachyonServer: string;
@@ -21,7 +19,7 @@ export interface Config {
 	engineInstallTimeoutSeconds: number;
 }
 
-const ConfigSchema: JSONSchemaType<Config> = {
+const ConfigSchema = {
 	$id: 'Config',
 	type: 'object',
 	properties: {
@@ -30,12 +28,12 @@ const ConfigSchema: JSONSchemaType<Config> = {
 			description: 'Hostname of the tachyon server to connect to.',
 		},
 		tachyonServerPort: {
-			type: 'number',
+			type: ['number', 'null'],
 			description:
 				'Optional port of the tachyon server, by default standard HTTPS port will be used.',
 		},
 		useSecureConnection: {
-			type: 'boolean',
+			type: ['boolean', 'null'],
 			description:
 				'Whatever to use HTTPS/WSS to connect to tachyon server. Defaults to true, except for localhost.',
 		},
@@ -108,18 +106,61 @@ const ConfigSchema: JSONSchemaType<Config> = {
 	},
 	required: ['tachyonServer', 'authClientId', 'authClientSecret', 'hostingIP'],
 	additionalProperties: true,
-};
+} as const;
 
-const ajv = new Ajv({ strict: true, useDefaults: true, coerceTypes: true });
-addFormats(ajv);
+const ajv = new Ajv({ strict: true, useDefaults: true });
+(ajvFormats as any)(ajv);
 const validateConfig = ajv.compile(ConfigSchema);
 
-export async function loadConfig(path: string): Promise<Config> {
-	const config = JSON.parse(await fs.readFile(path, 'utf-8'));
-	if (!validateConfig(config)) {
-		throw new Error('Invalid config', {
-			cause: new Error(ajv.errorsText(validateConfig.errors)),
-		});
+export async function loadConfig(path?: string): Promise<Config> {
+	const isContainer = process.env.CONTAINERENV === 'true';
+	
+	if (isContainer) {
+		// Container mode - only use environment variables
+		const config: Config = {
+			tachyonServer: process.env.TACHYON_SERVER!,
+			tachyonServerPort: process.env.TACHYON_SERVER_PORT ? parseInt(process.env.TACHYON_SERVER_PORT, 10) : null,
+			useSecureConnection: process.env.USE_SECURE_CONNECTION ? process.env.USE_SECURE_CONNECTION === 'true' : null,
+			authClientId: process.env.AUTH_CLIENT_ID!,
+			authClientSecret: process.env.AUTH_CLIENT_SECRET!,
+			hostingIP: process.env.HOSTING_IP!,
+			maxReconnectDelaySeconds: process.env.MAX_RECONNECT_DELAY_SECONDS ? 
+				parseInt(process.env.MAX_RECONNECT_DELAY_SECONDS, 10) : 30,
+			engineSettings: process.env.ENGINE_SETTINGS ? 
+				JSON.parse(process.env.ENGINE_SETTINGS) : {},
+			maxBattles: process.env.MAX_BATTLES ? 
+				parseInt(process.env.MAX_BATTLES, 10) : 50,
+			maxUpdatesSubscriptionAgeSeconds: process.env.MAX_UPDATES_SUBSCRIPTION_AGE_SECONDS ? 
+				parseInt(process.env.MAX_UPDATES_SUBSCRIPTION_AGE_SECONDS, 10) : 600,
+			engineStartPort: process.env.ENGINE_START_PORT ? 
+				parseInt(process.env.ENGINE_START_PORT, 10) : 20000,
+			engineAutohostStartPort: process.env.ENGINE_AUTOHOST_START_PORT ? 
+				parseInt(process.env.ENGINE_AUTOHOST_START_PORT, 10) : 22000,
+			maxPortsUsed: process.env.MAX_PORTS_USED ? 
+				parseInt(process.env.MAX_PORTS_USED, 10) : 1000,
+			engineInstallTimeoutSeconds: process.env.ENGINE_INSTALL_TIMEOUT_SECONDS ? 
+				parseInt(process.env.ENGINE_INSTALL_TIMEOUT_SECONDS, 10) : 600
+		};
+
+		if (!validateConfig(config)) {
+			throw new Error('Invalid environment configuration: ' + ajv.errorsText(validateConfig.errors));
+		}
+		
+		return config;
+	} else {
+		// Traditional mode - use config file
+		if (!path) {
+			throw new Error('Config file path required when not in container mode');
+		}
+
+		try {
+			const fileConfig = JSON.parse(await readFile(path, 'utf-8')) as Config;
+			if (!validateConfig(fileConfig)) {
+				throw new Error('Invalid file configuration: ' + ajv.errorsText(validateConfig.errors));
+			}
+			return fileConfig;
+		} catch (err: any) {
+			throw new Error(`Failed to load config file: ${err.message}`);
+		}
 	}
-	return config;
 }

@@ -1,18 +1,5 @@
 # Build stage
-FROM alpine:3.21.3 AS builder
-
-# Install build dependencies
-RUN apk add --no-cache \
-    curl \
-    git \
-    python3 \
-    build-base \
-    python3-dev \
-    g++ \
-    make
-
-# Install Node.js
-RUN apk add --no-cache nodejs npm
+FROM node:22-alpine AS builder
 
 # Set working directory
 WORKDIR /app
@@ -30,13 +17,10 @@ COPY . .
 RUN npm run build
 
 # Runtime stage
-FROM alpine:3.21.3
+FROM node:22-alpine
 
-# Install runtime dependencies
-RUN apk add --no-cache \
-    nodejs \
-    npm \
-    tini
+# Install tini
+RUN apk add --no-cache tini
 
 # Create non-root user
 RUN addgroup -S recoil && adduser -S recoil -G recoil
@@ -69,4 +53,4 @@ VOLUME ["/app/engines", "/app/instances"]
 ENTRYPOINT ["/sbin/tini", "--"]
 
 # Start the application
-CMD ["node", "dist/index.js"] 
+CMD ["node", "dist/main.js"] 
