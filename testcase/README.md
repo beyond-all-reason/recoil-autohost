@@ -8,7 +8,6 @@ This directory contains a test suite for validating the basic connectivity and f
 # Install prerequisites (Ubuntu/Debian)
 sudo apt-get update && sudo apt-get install -y \
     docker.io \
-    docker-compose \
     curl \
     jq \
     p7zip-full \

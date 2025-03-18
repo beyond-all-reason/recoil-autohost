@@ -13,7 +13,6 @@ This directory contains Docker-related files for building and running the Recoil
 ## Prerequisites
 
 - Docker installed on your system
-- Docker Compose (optional, for using docker-compose.yml)
 - A valid `config.json` file in the project root
 - An `engines` directory containing the game engine binaries
 - Host system with glibc support (required for Spring engine binaries)
