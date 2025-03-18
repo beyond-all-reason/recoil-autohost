@@ -1,13 +1,10 @@
 {
-  "tachyonServer": "tachyon-fake",
+  "tachyonServer": "localhost",
   "tachyonServerPort": 8084,
   "authClientId": "autohost1",
   "authClientSecret": "pass1",
-  "hostingIP": "0.0.0.0",
-  "useSecureConnection": false,
+  "hostingIP": "127.0.0.1",
   "engineSettings": {
-    "BindToIp": "0.0.0.0",
-    "AutohostIP": "0.0.0.0",
     "InitialNetworkTimeout": 1000,
     "LogFlushLevel": 0
   }
