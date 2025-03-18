@@ -101,7 +101,7 @@ export class TachyonServer<F extends Fastify.FastifyInstance> extends TypedEmitt
 	}
 
 	start() {
-		return this.fastifyServer.listen({ port: this.askedPort });
+		return this.fastifyServer.listen({ port: this.askedPort, host: '0.0.0.0' });
 	}
 
 	close() {
@@ -173,14 +173,19 @@ export async function createTachyonServer(options?: TachyonServerOpts) {
 		reply.send(error);
 	});
 
-	server.get('/.well-known/oauth-authorization-server', async (_req, resp) => {
+	server.get('/.well-known/oauth-authorization-server', async (req, resp) => {
 		const port = server.addresses()[0].port;
+		const hostname = req.hostname;
 		resp.header('cache-control', 'max-age=3600, public');
 		return {
-			issuer: `http://localhost:${port}`,
-			token_endpoint: `http://localhost:${port}/token`,
+			issuer: `http://${hostname}:${port}`,
+			token_endpoint: `http://${hostname}:${port}/token`,
 			response_types_supported: ['token'],
 		};
+	});
+
+	server.get('/health', async (_req, resp) => {
+		return { status: 'ok' };
 	});
 
 	const validAccessTokens = new Set<string>();
