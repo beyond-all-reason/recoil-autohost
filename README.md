@@ -83,6 +83,14 @@ on changes in every new commit: formatting type-checking, tests, linting.
 ln -s ../../pre-commit .git/hooks/pre-commit
 ```
 
+### Building/running Docker image
+
+```shell
+export AUTOHOST_IMAGE_TAG=recoil-autohost
+docker build -t $AUTOHOST_IMAGE_TAG .
+docker run --interactive --tty --rm --volume ./config.json:/app/config.json $AUTOHOST_IMAGE_TAG
+```
+
 ### Testing with tachyon server fake
 
 This repository contains a minimal bare bones implementation of Tachyon lobby
