@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 The Recoil Autohost Authors
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { test, after, beforeEach, suite } from 'node:test';
 import { equal } from 'node:assert/strict';
 

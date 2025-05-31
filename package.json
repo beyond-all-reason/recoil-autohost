@@ -14,7 +14,7 @@
     "format": "prettier --write --cache .",
     "format:check": "prettier --check --cache ."
   },
-  "author": "Marek Rusinowski",
+  "author": "The Recoil Autohost Authors",
   "license": "Apache-2.0",
   "type": "module",
   "engines": {

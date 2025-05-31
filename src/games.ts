@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 The Recoil Autohost Authors
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import type { Environment } from './environment.js';
 import type { AutohostStartRequestData } from 'tachyon-protocol/types';
 import { runEngine, type EngineRunner, type Env as EngineRunnerEnv } from './engineRunner.js';

@@ -1,6 +1,14 @@
 #!/bin/bash
 
-# The whole stashing dance based on: http://stackoverflow.com/a/20480591/1435658
+# SPDX-FileCopyrightText: 2013-2021 torek (https://stackoverflow.com/users/1256452/torek)
+# SPDX-FileCopyrightText: 2025 The Recoil Autohost Authors
+#
+# SPDX-License-Identifier: CC-BY-SA-3.0
+# SPDX-FileAttributionText: <text>
+# This file is adapted from the original work by torek from
+# http://stackoverflow.com/a/20480591/1435658, with modifications by
+# the Recoil Autohost Authors.
+# </text>
 
 # First, stash index and work dir, keeping only the
 # to-be-committed changes in the working directory.
@@ -24,3 +32,9 @@ npm run format:check || exit 1
 npm run lint || exit 1
 npm run test || exit 1
 npm run build || exit 1
+if command -v reuse 2>&1 >/dev/null; then
+	echo "> reuse lint -l"
+	reuse lint -l || exit 1
+else
+	echo "REUSE tool not found (https://github.com/fsfe/reuse-tool), skipping licensing verification"
+fi

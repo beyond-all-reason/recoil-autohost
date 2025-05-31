@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 The Recoil Autohost Authors
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { Deque } from '@js-sdsl/deque';
 
 type EventCallback<T> = (time: number, ev: T) => Promise<void>;

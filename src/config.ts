@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 The Recoil Autohost Authors
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import fs from 'node:fs/promises';
 import { Ajv, JSONSchemaType, type Plugin } from 'ajv';
 import ajvFormats, { type FormatsPluginOptions } from 'ajv-formats';

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 The Recoil Autohost Authors
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { AutohostStartRequestData, Player, AllyTeam, Team, Bot } from 'tachyon-protocol/types';
 import * as tdf from 'recoil-tdf';
 

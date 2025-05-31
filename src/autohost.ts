@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 The Recoil Autohost Authors
+//
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * The core module providing a translation between tachyon-land and engine-land.
  * See Autohost class for more details.

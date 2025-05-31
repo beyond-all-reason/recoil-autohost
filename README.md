@@ -1,4 +1,13 @@
+<!--
+SPDX-FileCopyrightText: 2025 The Recoil Autohost Authors
+
+SPDX-License-Identifier: CC0-1.0
+SPDX-FileType: DOCUMENTATION
+-->
+
 # Recoil Autohost
+
+[![REUSE status](https://api.reuse.software/badge/github.com/beyond-all-reason/recoil-autohost)](https://api.reuse.software/info/github.com/beyond-all-reason/recoil-autohost)
 
 Starts [Recoil] engine dedicated game servers as-a-service over the [Tachyon] protocol.
 
@@ -181,3 +190,7 @@ autohost.
 [Recoil]: https://github.com/beyond-all-reason/spring
 [Tachyon]: https://github.com/beyond-all-reason/tachyon
 [Teiserver]: https://github.com/beyond-all-reason/teiserver
+
+## License
+
+This project is licensed primarily under the [Apache License 2.0](./LICENSE) license, and that's the license of the resulting executable, but there are exceptions for some files in the repository. We are using [REUSE](https://reuse.software/) for documenting, tracking and verifying the copyright and licensing information of files in the repository.
