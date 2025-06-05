@@ -279,6 +279,20 @@ suite('Autohost', async () => {
 		assert.equal(er.close.mock.callCount(), 1);
 	});
 
+	await test('timeout kill', async () => {
+		const er = new EngineRunnerFake();
+		const env = getEnv(() => er);
+		env.config.maxGameDurationSeconds = 0.1;
+		const gm = new GamesManager(env);
+		const ah = new Autohost(env, gm, new EngineVersionsManagerFake());
+		const req = createStartRequest([{ name: 'user1', userId: randomUUID() }]);
+		await ah.start(req);
+		await new Promise((resolve) => setTimeout(resolve, 50));
+		assert.equal(er.close.mock.callCount(), 0);
+		await new Promise((resolve) => setTimeout(resolve, 150));
+		assert.equal(er.close.mock.callCount(), 1);
+	});
+
 	await test('kill battle not found', async () => {
 		const env = getEnv();
 		const gm = new GamesManager(env);

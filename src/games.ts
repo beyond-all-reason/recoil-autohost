@@ -172,12 +172,14 @@ export class GamesManager extends TypedEmitter<Events> implements GamesManager {
 	private createKillTimer(game: Game): NodeJS.Timeout {
 		const maxDurationSeconds = this.env.config.maxGameDurationSeconds;
 		const maxDurationMs = maxDurationSeconds * 1000;
-		return setTimeout(() => {
+		const timer = setTimeout(() => {
 			game.logger.warn(
 				`max game duration of ${maxDurationSeconds} seconds reached, forcing kill`,
 			);
 			this.killGame(game.battleId);
 		}, maxDurationMs);
+		timer.unref();
+		return timer;
 	}
 
 	get capacity(): GamesCapacity {
