@@ -148,6 +148,7 @@ suite('Autohost', async () => {
 				hostingIP: '127.0.0.1',
 				engineSettings: {},
 				maxUpdatesSubscriptionAgeSeconds: 10 * 60,
+				maxGameDurationSeconds: 8 * 60 * 60,
 			},
 			mocks: { runEngine: runEngineMock ?? fakeRunEngine },
 		};

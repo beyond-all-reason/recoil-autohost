@@ -16,6 +16,7 @@ interface Game {
 	portOffset: number;
 	started: boolean;
 	logger: Environment['logger'];
+	killTimer: NodeJS.Timeout | null;
 }
 
 interface GamesCapacity {
@@ -46,6 +47,7 @@ interface Config {
 	maxPortsUsed: number;
 	maxBattles: number;
 	hostingIP: string;
+	maxGameDurationSeconds: number;
 }
 
 interface Mocks {
@@ -111,6 +113,7 @@ export class GamesManager extends TypedEmitter<Events> implements GamesManager {
 			portOffset: portOffset,
 			started: false,
 			logger: this.logger.child({ battleId: req.battleId }),
+			killTimer: null,
 		};
 		this.games.set(game.battleId, game);
 
@@ -121,6 +124,10 @@ export class GamesManager extends TypedEmitter<Events> implements GamesManager {
 
 		er.on('exit', () => {
 			game.logger.info('battle exited');
+			if (game.killTimer) {
+				clearTimeout(game.killTimer);
+				game.killTimer = null;
+			}
 			this.games.delete(game.battleId);
 			this.usedPortOffset.delete(game.portOffset);
 			if (game.started) {
@@ -139,6 +146,7 @@ export class GamesManager extends TypedEmitter<Events> implements GamesManager {
 
 		await events.once(er, 'start');
 		game.started = true;
+		game.killTimer = this.createKillTimer(game);
 		this.currCapacity.currentBattles += 1;
 		process.nextTick(() => {
 			this.emit('capacity', this.capacity);
@@ -159,6 +167,17 @@ export class GamesManager extends TypedEmitter<Events> implements GamesManager {
 		const game = this.games.get(battleId);
 		if (!game) throw new TachyonError('invalid_request', `game ${battleId} doesn't exist`);
 		game.engineRunner.close();
+	}
+
+	private createKillTimer(game: Game): NodeJS.Timeout {
+		const maxDurationSeconds = this.env.config.maxGameDurationSeconds;
+		const maxDurationMs = maxDurationSeconds * 1000;
+		return setTimeout(() => {
+			game.logger.warn(
+				`max game duration of ${maxDurationSeconds} seconds reached, forcing kill`,
+			);
+			this.killGame(game.battleId);
+		}, maxDurationMs);
 	}
 
 	get capacity(): GamesCapacity {
