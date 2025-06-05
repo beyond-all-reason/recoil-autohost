@@ -148,6 +148,7 @@ suite('Autohost', async () => {
 				hostingIP: '127.0.0.1',
 				engineSettings: {},
 				maxUpdatesSubscriptionAgeSeconds: 10 * 60,
+				maxGameDurationSeconds: 8 * 60 * 60,
 			},
 			mocks: { runEngine: runEngineMock ?? fakeRunEngine },
 		};
@@ -275,6 +276,20 @@ suite('Autohost', async () => {
 		const req = createStartRequest([{ name: 'user1', userId: randomUUID() }]);
 		await ah.start(req);
 		await ah.kill({ battleId: req.battleId });
+		assert.equal(er.close.mock.callCount(), 1);
+	});
+
+	await test('timeout kill', async () => {
+		const er = new EngineRunnerFake();
+		const env = getEnv(() => er);
+		env.config.maxGameDurationSeconds = 0.1;
+		const gm = new GamesManager(env);
+		const ah = new Autohost(env, gm, new EngineVersionsManagerFake());
+		const req = createStartRequest([{ name: 'user1', userId: randomUUID() }]);
+		await ah.start(req);
+		await new Promise((resolve) => setTimeout(resolve, 50));
+		assert.equal(er.close.mock.callCount(), 0);
+		await new Promise((resolve) => setTimeout(resolve, 150));
 		assert.equal(er.close.mock.callCount(), 1);
 	});
 
