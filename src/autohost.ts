@@ -346,24 +346,22 @@ export class Autohost implements TachyonAutohost {
 			this.eventsBuffer.drain().then(() => {
 				process.exit(0);
 			});
+			return;
 		}
 
 		// Graceful shutdown, wait for all games to finish then exit.
-		if (this.gamesMgr.capacity.maxBattles > 0) {
-			this.logger.info(
-				'shutdown signal recieved, waiting for all games to finish before exiting',
-			);
-			this.gamesMgr.setMaxBattles(0);
-			this.gamesMgr.on('capacity', (newCapacity) => {
-				if (newCapacity.currentBattles === 0) {
-					this.logger.info('all games have finished - exiting');
-					this.eventsBuffer.drain().then(() => {
-						process.exit(0);
-					});
-				}
-			});
-			return;
-		}
+		this.logger.info(
+			'shutdown signal recieved, waiting for all games to finish before exiting',
+		);
+		this.gamesMgr.setMaxBattles(0);
+		this.gamesMgr.on('capacity', (newCapacity) => {
+			if (newCapacity.currentBattles === 0) {
+				this.logger.info('all games have finished - exiting');
+				this.eventsBuffer.drain().then(() => {
+					process.exit(0);
+				});
+			}
+		});
 	}
 }
 
