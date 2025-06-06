@@ -37,6 +37,10 @@ async function main(argv: string[]) {
 		clientOpts.secure = config.useSecureConnection;
 	}
 
+	// Intercept the SIGINT and SIGTERM signals to allow for graceful shut down.
+	process.on('SIGINT', () => autohost.shutdown());
+	process.on('SIGTERM', () => autohost.shutdown());
+
 	// This is a simple exponential backoff reconnect loop, we
 	// just keep trying to connect to the server and if we get
 	// disconnected we wait a bit and try again.

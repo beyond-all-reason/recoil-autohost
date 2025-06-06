@@ -161,7 +161,22 @@ export class GamesManager extends TypedEmitter<Events> implements GamesManager {
 		game.engineRunner.close();
 	}
 
+	killAllGames() {
+		for (const game of this.games.values()) {
+			game.engineRunner.close();
+		}
+	}
+
+	setMaxBattles(maxBattles: number) {
+		this.currCapacity.maxBattles = maxBattles;
+		this.emit('capacity', this.capacity);
+	}
+
 	get capacity(): GamesCapacity {
 		return { ...this.currCapacity };
+	}
+
+	get gameCount(): number {
+		return this.games.size;
 	}
 }

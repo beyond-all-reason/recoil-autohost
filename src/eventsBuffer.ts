@@ -138,6 +138,19 @@ export class EventsBuffer<T> {
 	}
 
 	/**
+	 * Wait for all events to be processed by the pusher.
+	 */
+	async drain(): Promise<void> {
+		if (!this.callback) {
+			return;
+		}
+
+		while (this.pusherRunning || this.events.length > 0) {
+			await new Promise((r) => process.nextTick(r));
+		}
+	}
+
+	/**
 	 * Length is simply number of events still in the buffer.
 	 *
 	 * Useful primarily for tests.

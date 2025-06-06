@@ -91,6 +91,7 @@ export class Autohost implements TachyonAutohost {
 	// sure we are only publishing a single event of this type.
 	private finishedBattles: Set<string> = new Set();
 	private currentStatus: AutohostStatusEventData;
+	private shuttingDown: boolean = false;
 	private eventsBuffer: EventsBuffer<{
 		battleId: string;
 		update: AutohostUpdateEventData['update'];
@@ -323,6 +324,45 @@ export class Autohost implements TachyonAutohost {
 				{ battleId, ev, err },
 				'failed to convert engine event to tachyon event',
 			);
+		}
+	}
+
+	shutdown(): void {
+		// Force shutdown (i.e. pressing CTRL+C, CTRL+C in sequence), kill all games then exit.
+		if (this.shuttingDown) {
+			this.logger.warn(
+				'second shutdown signal recieved, forcing shutdown by killing all games and exiting',
+			);
+			this.gamesMgr.killAllGames();
+			process.exit(0);
+		}
+
+		this.shuttingDown = true;
+
+		// No games running, exit immediately.
+		if (this.gamesMgr.gameCount === 0) {
+			this.logger.info('shutdown signal received, no games running - exiting immediately');
+			this.gamesMgr.setMaxBattles(0);
+			this.eventsBuffer.drain().then(() => {
+				process.exit(0);
+			});
+		}
+
+		// Graceful shutdown, wait for all games to finish then exit.
+		if (this.gamesMgr.capacity.maxBattles > 0) {
+			this.logger.info(
+				'shutdown signal recieved, waiting for all games to finish before exiting',
+			);
+			this.gamesMgr.setMaxBattles(0);
+			this.gamesMgr.on('capacity', (newCapacity) => {
+				if (newCapacity.currentBattles === 0) {
+					this.logger.info('all games have finished - exiting');
+					this.eventsBuffer.drain().then(() => {
+						process.exit(0);
+					});
+				}
+			});
+			return;
 		}
 	}
 }
