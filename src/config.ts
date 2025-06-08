@@ -23,6 +23,7 @@ export interface Config {
 	engineAutohostStartPort: number;
 	maxPortsUsed: number;
 	engineInstallTimeoutSeconds: number;
+	maxGameDurationSeconds: number;
 }
 
 const ConfigSchema: JSONSchemaType<Config> = {
@@ -108,6 +109,12 @@ const ConfigSchema: JSONSchemaType<Config> = {
 			description: 'Hard timeout for engine installation by engine manager',
 			default: 10 * 60,
 			minimum: 5,
+		},
+		maxGameDurationSeconds: {
+			type: 'number',
+			description: 'How many seconds to wait before automatically killing the game.',
+			default: 8 * 60 * 60,
+			minimum: 60 * 60,
 		},
 	},
 	required: ['tachyonServer', 'authClientId', 'authClientSecret', 'hostingIP'],
