@@ -279,17 +279,20 @@ suite('Autohost', async () => {
 		assert.equal(er.close.mock.callCount(), 1);
 	});
 
-	await test('timeout kill', async () => {
+	await test('timeout kill', async (t) => {
+		t.mock.timers.enable({ apis: ['setTimeout'] });
 		const er = new EngineRunnerFake();
 		const env = getEnv(() => er);
 		env.config.maxGameDurationSeconds = 0.1;
 		const gm = new GamesManager(env);
 		const ah = new Autohost(env, gm, new EngineVersionsManagerFake());
 		const req = createStartRequest([{ name: 'user1', userId: randomUUID() }]);
-		await ah.start(req);
-		await new Promise((resolve) => setTimeout(resolve, 50));
+		const startPromise = ah.start(req);
+		t.mock.timers.tick(0);
+		await startPromise;
+		t.mock.timers.tick(99);
 		assert.equal(er.close.mock.callCount(), 0);
-		await new Promise((resolve) => setTimeout(resolve, 150));
+		t.mock.timers.tick(1);
 		assert.equal(er.close.mock.callCount(), 1);
 	});
 
