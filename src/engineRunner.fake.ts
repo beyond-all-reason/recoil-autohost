@@ -14,11 +14,11 @@ export class EngineRunnerFake extends TypedEmitter<EngineRunnerEvents> implement
 
 	constructor() {
 		super();
-		setTimeout(() => {
+		setImmediate(() => {
 			if (!this.stopped) {
 				this.emit('start');
 			}
-		}, 0);
+		});
 	}
 
 	close = mock.fn(() => {

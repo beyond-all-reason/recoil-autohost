@@ -287,9 +287,7 @@ suite('Autohost', async () => {
 		const gm = new GamesManager(env);
 		const ah = new Autohost(env, gm, new EngineVersionsManagerFake());
 		const req = createStartRequest([{ name: 'user1', userId: randomUUID() }]);
-		const startPromise = ah.start(req);
-		t.mock.timers.tick(0);
-		await startPromise;
+		await ah.start(req);
 		t.mock.timers.tick(99);
 		assert.equal(er.close.mock.callCount(), 0);
 		t.mock.timers.tick(1);
