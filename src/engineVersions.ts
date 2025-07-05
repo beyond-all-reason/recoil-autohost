@@ -8,9 +8,11 @@
 import { spawn } from 'node:child_process';
 import { TypedEmitter } from 'tiny-typed-emitter';
 import { Environment } from './environment.js';
+import fs from 'node:fs/promises';
 
 export interface EngineVersionsManagerEvents {
 	versions: (versions: string[]) => void;
+	error: (err: Error) => void;
 }
 
 export interface EngineVersionsManager extends TypedEmitter<EngineVersionsManagerEvents> {
@@ -45,6 +47,22 @@ export class EngineVersionsManagerImpl
 		super();
 		this.env = env;
 		this.logger = env.logger.child({ class: 'EngineVersionsManager' });
+
+		this.discoverVersions()
+			.then((versions) => {
+				this.engineVersions = versions;
+				this.emit('versions', this.engineVersions);
+			})
+			.catch((err) => {
+				this.logger.error(err, 'failed to discover engine versions');
+				this.emit('error', err);
+			});
+	}
+
+	private async discoverVersions(): Promise<string[]> {
+		await fs.mkdir('engines', { recursive: true });
+		const entries = await fs.readdir('engines', { withFileTypes: true });
+		return entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name);
 	}
 
 	public installEngine(version: string) {

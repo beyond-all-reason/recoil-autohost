@@ -240,6 +240,21 @@ suite('Autohost', async () => {
 		);
 	});
 
+	await test('tachyon status contains engine versions on startup', async () => {
+		const env = getEnv();
+		const gm = new GamesManager(env);
+		const evm = new EngineVersionsManagerFake();
+		evm.engineVersions = ['1.0', '2.0'];
+		const ah = new Autohost(env, gm, evm);
+		const ts = {
+			update: async () => {},
+			status: mock.fn(async (_status: AutohostStatusEventData) => {}),
+		};
+		ah.connected(ts);
+		assert.equal(ts.status.mock.callCount(), 1);
+		assert.deepEqual(ts.status.mock.calls[0].arguments[0].availableEngines, ['1.0', '2.0']);
+	});
+
 	await test('tachyon install engine', async () => {
 		const env = getEnv();
 		const gm = new GamesManager(env);

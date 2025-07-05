@@ -23,6 +23,10 @@ async function main(argv: string[]) {
 
 	const manager = new GamesManager(env);
 	const engineVersionMgr = new EngineVersionsManagerImpl(env);
+	engineVersionMgr.on('error', (err) => {
+		logger.fatal(err, 'failed to initialize EngineVersionsManager, exiting');
+		process.exit(1);
+	});
 	const autohost = new Autohost(env, manager, engineVersionMgr);
 
 	const clientOpts: TachyonClientOpts = {
