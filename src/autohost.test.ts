@@ -134,6 +134,9 @@ class EngineVersionsManagerFake
 {
 	public engineVersions: string[] = [];
 	public installEngine(_version: string): void {}
+	public close(): Promise<void> {
+		return Promise.resolve();
+	}
 }
 
 suite('Autohost', async () => {

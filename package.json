@@ -28,7 +28,8 @@
     "recoil-tdf": "^1.0.0",
     "tachyon-protocol": "1.10.0",
     "tiny-typed-emitter": "^2.1.0",
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "chokidar": "^4.0.3"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",

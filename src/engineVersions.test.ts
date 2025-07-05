@@ -2,14 +2,29 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-import { suite, test, mock } from 'node:test';
+import { suite, test, mock, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { pino } from 'pino';
-import fs from 'node:fs/promises';
-import { once } from 'node:events';
 import { EngineVersionsManagerImpl, type Env } from './engineVersions.js';
+import { FSWatcher } from 'chokidar';
+import { TypedEmitter } from 'tiny-typed-emitter';
+import fs from 'node:fs';
 
 suite('EngineVersionsManagerImpl', () => {
+	let fakeWatcher: TypedEmitter & { add: () => void; close: () => void };
+
+	beforeEach(() => {
+		class FakeWatcher extends TypedEmitter {
+			add() {}
+			close() {}
+		}
+		fakeWatcher = new FakeWatcher();
+		mock.method(FSWatcher.prototype, 'on', fakeWatcher.on.bind(fakeWatcher));
+		mock.method(FSWatcher.prototype, 'add', fakeWatcher.add.bind(fakeWatcher));
+		mock.method(FSWatcher.prototype, 'close', fakeWatcher.close.bind(fakeWatcher));
+		mock.method(fs, 'mkdirSync', () => {});
+	});
+
 	function getEnv(): Env {
 		return {
 			logger: pino({ level: 'silent' }),
@@ -20,63 +35,52 @@ suite('EngineVersionsManagerImpl', () => {
 		};
 	}
 
-	test('discoverVersions discovers engine versions', async (t) => {
-		const readdirMock = t.mock.method(fs, 'readdir', async () => [
-			{ name: '105.1.1-1523-g63a25e1', isDirectory: () => true },
-			{ name: '105.1.1-2449-gf1234a9', isDirectory: () => true },
-			{ name: 'README.md', isDirectory: () => false },
-		]);
-		const mkdirMock = t.mock.method(fs, 'mkdir', async () => {});
-
+	test('watches for new and removed engines', async () => {
 		const evm = new EngineVersionsManagerImpl(getEnv());
-		const [versions] = await once(evm, 'versions');
+		const { promise: readyPromise, resolve: readyResolve } = Promise.withResolvers<void>();
+		evm.once('versions', () => readyResolve());
+		fakeWatcher.emit('ready');
+		await readyPromise;
 
-		assert.equal(readdirMock.mock.callCount(), 1);
-		assert.equal(mkdirMock.mock.callCount(), 1);
-		assert.deepStrictEqual(versions, ['105.1.1-1523-g63a25e1', '105.1.1-2449-gf1234a9']);
-		assert.deepStrictEqual(evm.engineVersions, [
-			'105.1.1-1523-g63a25e1',
-			'105.1.1-2449-gf1234a9',
-		]);
+		const { promise: addPromise1, resolve: addResolve1 } = Promise.withResolvers<void>();
+		evm.once('versions', (versions) => {
+			assert.deepStrictEqual(versions, ['105.1.1-1523-g63a25e1']);
+			addResolve1();
+		});
+		fakeWatcher.emit('addDir', '105.1.1-1523-g63a25e1');
+		await addPromise1;
+
+		const { promise: addPromise2, resolve: addResolve2 } = Promise.withResolvers<void>();
+		evm.once('versions', (versions) => {
+			assert.deepStrictEqual(versions, ['105.1.1-1523-g63a25e1', '105.1.1-2449-gf1234a9']);
+			addResolve2();
+		});
+		fakeWatcher.emit('addDir', '105.1.1-2449-gf1234a9');
+		await addPromise2;
+
+		const { promise: removePromise, resolve: removeResolve } = Promise.withResolvers<void>();
+		evm.once('versions', (versions) => {
+			assert.deepStrictEqual(versions, ['105.1.1-2449-gf1234a9']);
+			removeResolve();
+		});
+		fakeWatcher.emit('unlinkDir', '105.1.1-1523-g63a25e1');
+		await removePromise;
 	});
 
-	test('discoverVersions handles empty engines dir', async (t) => {
-		const readdirMock = t.mock.method(fs, 'readdir', async () => []);
-		const mkdirMock = t.mock.method(fs, 'mkdir', async () => {});
-
+	test('initial discovery works', async () => {
 		const evm = new EngineVersionsManagerImpl(getEnv());
-		const [versions] = await once(evm, 'versions');
 
-		assert.equal(readdirMock.mock.callCount(), 1);
-		assert.equal(mkdirMock.mock.callCount(), 1);
-		assert.deepStrictEqual(versions, []);
-		assert.deepStrictEqual(evm.engineVersions, []);
-	});
-
-	test('discoverVersions propagates other errors', async (t) => {
-		const logger = pino({ level: 'silent' });
-		const loggerErrorMock = mock.fn();
-		const env = getEnv();
-		env.logger = {
-			...logger,
-			child: () => ({
-				...logger,
-				// We mock the logger to verify that the error is logged correctly.
-				error: loggerErrorMock,
-			}),
-		} as unknown as typeof logger;
-
-		const testError = new Error('some other error');
-		t.mock.method(fs, 'readdir', async () => {
-			throw testError;
+		const { promise, resolve } = Promise.withResolvers<void>();
+		evm.once('versions', (versions) => {
+			assert.deepStrictEqual(versions, ['105.1.1-1523-g63a25e1', '105.1.1-2449-gf1234a9']);
+			resolve();
 		});
 
-		const evm = new EngineVersionsManagerImpl(env);
+		fakeWatcher.emit('addDir', '');
+		fakeWatcher.emit('addDir', '105.1.1-1523-g63a25e1');
+		fakeWatcher.emit('addDir', '105.1.1-2449-gf1234a9');
+		fakeWatcher.emit('ready');
 
-		const [err] = await once(evm, 'error');
-
-		assert.equal(loggerErrorMock.mock.callCount(), 1);
-		assert.deepStrictEqual(loggerErrorMock.mock.calls[0].arguments[0], testError);
-		assert.deepStrictEqual(err, testError);
+		await promise;
 	});
 });
