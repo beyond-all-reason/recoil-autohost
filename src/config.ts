@@ -23,6 +23,7 @@ export interface Config {
 	engineAutohostStartPort: number;
 	maxPortsUsed: number;
 	engineInstallTimeoutSeconds: number;
+	engineCdnBaseUrl: string;
 	maxGameDurationSeconds: number;
 }
 
@@ -109,6 +110,12 @@ const ConfigSchema: JSONSchemaType<Config> = {
 			description: 'Hard timeout for engine installation by engine manager',
 			default: 10 * 60,
 			minimum: 5,
+		},
+		engineCdnBaseUrl: {
+			type: 'string',
+			description: 'Base URL of BAR CDN API used for engine release lookup.',
+			default: 'https://files-cdn.beyondallreason.dev',
+			format: 'uri',
 		},
 		maxGameDurationSeconds: {
 			type: 'number',

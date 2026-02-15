@@ -30,6 +30,7 @@ suite('EngineVersionsManagerImpl', () => {
 			logger: pino({ level: 'silent' }),
 			config: {
 				engineInstallTimeoutSeconds: 60,
+				engineCdnBaseUrl: 'https://files-cdn.beyondallreason.dev',
 			},
 			mocks: {},
 		};
