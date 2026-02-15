@@ -83,4 +83,21 @@ suite('EngineVersionsManagerImpl', () => {
 
 		await promise;
 	});
+
+	test('ignores hidden internal directories', async () => {
+		const evm = new EngineVersionsManagerImpl(getEnv());
+
+		const { promise, resolve } = Promise.withResolvers<void>();
+		evm.once('versions', (versions) => {
+			assert.deepStrictEqual(versions, ['105.1.1-1523-g63a25e1']);
+			resolve();
+		});
+
+		fakeWatcher.emit('addDir', '.downloads');
+		fakeWatcher.emit('addDir', '.tmp-install-1234');
+		fakeWatcher.emit('addDir', '105.1.1-1523-g63a25e1');
+		fakeWatcher.emit('ready');
+
+		await promise;
+	});
 });
