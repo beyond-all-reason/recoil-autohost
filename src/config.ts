@@ -15,6 +15,7 @@ export interface Config {
 	authClientId: string;
 	authClientSecret: string;
 	hostingIP: string;
+	engineBindIP: string;
 	maxReconnectDelaySeconds: number;
 	engineSettings: { [k: string]: string };
 	maxBattles: number;
@@ -54,7 +55,13 @@ const ConfigSchema: JSONSchemaType<Config> = {
 		},
 		hostingIP: {
 			type: 'string',
-			description: 'The IP used by engine to hosting the battle.',
+			description: 'The IP advertised to clients for connecting to the battle.',
+			format: 'ipv4',
+		},
+		engineBindIP: {
+			type: 'string',
+			description: 'The local IP/interface used by engine to bind the battle socket.',
+			default: '0.0.0.0',
 			format: 'ipv4',
 		},
 		maxReconnectDelaySeconds: {
@@ -132,5 +139,5 @@ export async function loadConfig(path: string): Promise<Config> {
 			cause: new Error(ajv.errorsText(validateConfig.errors)),
 		});
 	}
-	return config;
+	return config as Config;
 }
