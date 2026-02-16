@@ -3,7 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { spawn } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
+import { createReadStream } from 'node:fs';
 import * as fsPromises from 'node:fs/promises';
 import * as path from 'node:path';
 import { Ajv, JSONSchemaType, type Plugin } from 'ajv';
@@ -115,6 +116,7 @@ export class EngineInstaller {
 
 		try {
 			await this.downloadFile(mirrorUrl, archivePath, timeoutMs);
+			await this.verifyArchiveChecksum(archivePath, release.md5);
 			await this.sevenZip.extract(archivePath, tempDir, timeoutMs);
 
 			await fsPromises.access(path.join(tempDir, 'spring-dedicated'));
@@ -166,7 +168,7 @@ export class EngineInstaller {
 	}
 
 	private async downloadFile(url: string, targetPath: string, timeoutMs: number): Promise<void> {
-		this.logger.info({ url }, 'downloading engine archive');
+		this.logger.info({ url, timeoutMs }, 'downloading engine archive');
 		const controller = new AbortController();
 		const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -181,6 +183,20 @@ export class EngineInstaller {
 			await fsPromises.writeFile(targetPath, bytes);
 		} finally {
 			clearTimeout(timeout);
+		}
+	}
+
+	private async verifyArchiveChecksum(archivePath: string, expectedMd5: string): Promise<void> {
+		const hash = createHash('md5');
+		for await (const chunk of createReadStream(archivePath)) {
+			hash.update(chunk);
+		}
+
+		const actualMd5 = hash.digest('hex').toLowerCase();
+		if (actualMd5 !== expectedMd5.toLowerCase()) {
+			throw new Error(
+				`Engine archive checksum mismatch, expected ${expectedMd5.toLowerCase()}, got ${actualMd5}`,
+			);
 		}
 	}
 }

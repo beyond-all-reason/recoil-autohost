@@ -9,6 +9,7 @@ import { EngineVersionsManagerImpl, type Env } from './engineVersions.js';
 import { FSWatcher } from 'chokidar';
 import { TypedEmitter } from 'tiny-typed-emitter';
 import fs from 'node:fs';
+import { EngineInstaller } from './engineInstaller.js';
 
 suite('EngineVersionsManagerImpl', () => {
 	let fakeWatcher: TypedEmitter & { add: () => void; close: () => void };
@@ -127,5 +128,22 @@ suite('EngineVersionsManagerImpl', () => {
 		});
 		fakeWatcher.emit('unlinkDir', 'engines\\105.1.1-1523-g63a25e1');
 		await removePromise;
+	});
+
+	test('de-duplicates install requests for same version', async () => {
+		const { promise: installPromise, resolve: installResolve } = Promise.withResolvers<void>();
+		let installCalls = 0;
+		mock.method(EngineInstaller.prototype, 'install', async () => {
+			installCalls += 1;
+			await installPromise;
+		});
+
+		const evm = new EngineVersionsManagerImpl(getEnv());
+		evm.installEngine('2025.06.12');
+		evm.installEngine('2025.06.12');
+		assert.equal(installCalls, 1);
+
+		installResolve();
+		await Promise.resolve();
 	});
 });

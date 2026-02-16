@@ -4,11 +4,17 @@
 
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
+import { createHash } from 'node:crypto';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { pino } from 'pino';
 import { EngineInstaller } from './engineInstaller.js';
 
 type EngineInstallerAccess = {
 	findEngineRelease(version: string): Promise<unknown>;
+	verifyArchiveChecksum(archivePath: string, expectedMd5: string): Promise<void>;
+	replaceInstalledEngineDir(tempDir: string, finalDir: string, version: string): Promise<void>;
 };
 
 suite('EngineInstaller', () => {
@@ -73,5 +79,25 @@ suite('EngineInstaller', () => {
 		assert.equal(url.origin, 'https://cdn.example.test');
 		assert.equal(url.pathname, '/find');
 		assert.equal(url.searchParams.get('springname'), '105.1.1-1234-gabcd');
+	});
+
+	test('verifies archive checksum', async () => {
+		const tmp = await mkdtemp(join(tmpdir(), 'engine-installer-test-'));
+		const archivePath = join(tmp, 'engine.7z');
+		const archiveData = Buffer.from('fake-archive-data');
+		await writeFile(archivePath, archiveData);
+
+		const md5 = createHash('md5').update(archiveData).digest('hex');
+		const installer = new EngineInstaller(
+			getEnv(async () => new Response('', { status: 200 })),
+		) as unknown as EngineInstallerAccess;
+
+		await assert.doesNotReject(installer.verifyArchiveChecksum(archivePath, md5));
+		await assert.rejects(
+			installer.verifyArchiveChecksum(archivePath, '00000000000000000000000000000000'),
+			/checksum mismatch/,
+		);
+
+		await rm(tmp, { recursive: true, force: true });
 	});
 });
