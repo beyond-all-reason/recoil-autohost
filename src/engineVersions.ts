@@ -7,7 +7,6 @@
  */
 import { spawn } from 'node:child_process';
 import * as fs from 'node:fs';
-import path from 'node:path';
 import { FSWatcher } from 'chokidar';
 import { TypedEmitter } from 'tiny-typed-emitter';
 import { EngineInstaller } from './engineInstaller.js';
@@ -85,7 +84,7 @@ export class EngineVersionsManagerImpl
 		if (this.shouldIgnoreVersionPath(versionPath)) {
 			return;
 		}
-		const version = path.basename(path.normalize(versionPath));
+		const version = this.getVersionName(versionPath);
 		if (!this.engineVersions.includes(version)) {
 			this.engineVersions.push(version);
 			if (this.ready) {
@@ -98,7 +97,7 @@ export class EngineVersionsManagerImpl
 		if (this.shouldIgnoreVersionPath(versionPath)) {
 			return;
 		}
-		const version = path.basename(path.normalize(versionPath));
+		const version = this.getVersionName(versionPath);
 		const index = this.engineVersions.indexOf(version);
 		if (index > -1) {
 			this.engineVersions.splice(index, 1);
@@ -114,11 +113,13 @@ export class EngineVersionsManagerImpl
 		if (versionPath === '') {
 			return true;
 		}
-
-		const normalized = path.normalize(versionPath);
-		const version = path.basename(normalized);
-
+		const version = this.getVersionName(versionPath);
 		return version.startsWith('.');
+	}
+
+	private getVersionName(versionPath: string) {
+		const pathParts = versionPath.split(/[\\/]/);
+		return pathParts[pathParts.length - 1] ?? '';
 	}
 
 	public installEngine(version: string) {
