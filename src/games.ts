@@ -47,6 +47,7 @@ interface Config {
 	maxPortsUsed: number;
 	maxBattles: number;
 	hostingIP: string;
+	engineBindIP: string;
 	maxGameDurationSeconds: number;
 }
 
@@ -103,7 +104,7 @@ export class GamesManager extends TypedEmitter<Events> implements GamesManager {
 		const portOffset = this.findFreePortOffset();
 		const er = (this.env.mocks?.runEngine ?? runEngine)(this.env, {
 			startRequest: req,
-			hostIP: this.env.config.hostingIP,
+			hostIP: this.env.config.engineBindIP,
 			hostPort: this.env.config.engineStartPort + portOffset,
 			autohostPort: this.env.config.engineAutohostStartPort + portOffset,
 		});

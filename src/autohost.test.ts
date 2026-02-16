@@ -149,6 +149,7 @@ suite('Autohost', async () => {
 				maxPortsUsed: 1000,
 				maxBattles: 1000,
 				hostingIP: '127.0.0.1',
+				engineBindIP: '0.0.0.0',
 				engineSettings: {},
 				maxUpdatesSubscriptionAgeSeconds: 10 * 60,
 				maxGameDurationSeconds: 8 * 60 * 60,
