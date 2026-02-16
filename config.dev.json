@@ -4,6 +4,7 @@
   "authClientId": "autohost1",
   "authClientSecret": "pass1",
   "hostingIP": "127.0.0.1",
+  "engineBindIP": "0.0.0.0",
   "engineSettings": {
     "InitialNetworkTimeout": 1000,
     "LogFlushLevel": 0
