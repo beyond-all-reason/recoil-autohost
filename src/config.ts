@@ -139,5 +139,5 @@ export async function loadConfig(path: string): Promise<Config> {
 			cause: new Error(ajv.errorsText(validateConfig.errors)),
 		});
 	}
-	return config as Config;
+	return config;
 }
