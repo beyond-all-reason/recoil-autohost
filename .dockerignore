@@ -1,8 +1,0 @@
-.git
-.github
-.idea
-node_modules
-dist
-instances
-engines
-npm-debug.log*
