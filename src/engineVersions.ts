@@ -113,7 +113,8 @@ export class EngineVersionsManagerImpl
 			return;
 		}
 
-		const installJob = this.installer.install(version)
+		const installJob = this.installer
+			.install(version)
 			.catch((error) => {
 				this.logger.error({ error, version }, 'engine install failed');
 			})

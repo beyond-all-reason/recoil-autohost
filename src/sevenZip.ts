@@ -20,11 +20,9 @@ export class SevenZipExtractor {
 		this.logger.info({ archivePath, outputPath }, 'extracting engine archive');
 
 		await new Promise<void>((resolve, reject) => {
-			const proc = this.spawnImpl(
-				sevenZipBin,
-				['x', archivePath, '-y', `-o${outputPath}`],
-				{ stdio: ['ignore', 'ignore', 'pipe'] },
-			);
+			const proc = this.spawnImpl(sevenZipBin, ['x', archivePath, '-y', `-o${outputPath}`], {
+				stdio: ['ignore', 'ignore', 'pipe'],
+			});
 
 			let stderr = '';
 			proc.stderr?.on('data', (chunk) => {

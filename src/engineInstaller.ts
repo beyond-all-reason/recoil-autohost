@@ -154,7 +154,9 @@ export class EngineInstaller {
 
 		const payload = (await response.json()) as unknown;
 		if (!validateReleaseLookup(payload)) {
-			throw new Error(`Invalid release lookup payload: ${ajv.errorsText(validateReleaseLookup.errors)}`);
+			throw new Error(
+				`Invalid release lookup payload: ${ajv.errorsText(validateReleaseLookup.errors)}`,
+			);
 		}
 		if (payload.length === 0) {
 			throw new Error(`No release found for engine ${version}`);
