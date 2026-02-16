@@ -96,9 +96,36 @@ suite('EngineVersionsManagerImpl', () => {
 
 		fakeWatcher.emit('addDir', '.downloads');
 		fakeWatcher.emit('addDir', '.tmp-install-1234');
+		fakeWatcher.emit('addDir', 'engines/.downloads');
+		fakeWatcher.emit('addDir', 'engines\\.downloads');
 		fakeWatcher.emit('addDir', '105.1.1-1523-g63a25e1');
 		fakeWatcher.emit('ready');
 
 		await promise;
+	});
+
+	test('normalizes watched directory paths to version names', async () => {
+		const evm = new EngineVersionsManagerImpl(getEnv());
+
+		const { promise: readyPromise, resolve: readyResolve } = Promise.withResolvers<void>();
+		evm.once('versions', () => readyResolve());
+		fakeWatcher.emit('ready');
+		await readyPromise;
+
+		const { promise: addPromise, resolve: addResolve } = Promise.withResolvers<void>();
+		evm.once('versions', (versions) => {
+			assert.deepStrictEqual(versions, ['105.1.1-1523-g63a25e1']);
+			addResolve();
+		});
+		fakeWatcher.emit('addDir', 'engines/105.1.1-1523-g63a25e1');
+		await addPromise;
+
+		const { promise: removePromise, resolve: removeResolve } = Promise.withResolvers<void>();
+		evm.once('versions', (versions) => {
+			assert.deepStrictEqual(versions, []);
+			removeResolve();
+		});
+		fakeWatcher.emit('unlinkDir', 'engines\\105.1.1-1523-g63a25e1');
+		await removePromise;
 	});
 });

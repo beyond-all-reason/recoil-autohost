@@ -7,6 +7,7 @@
  */
 import { spawn } from 'node:child_process';
 import * as fs from 'node:fs';
+import path from 'node:path';
 import { FSWatcher } from 'chokidar';
 import { TypedEmitter } from 'tiny-typed-emitter';
 import { EngineInstaller } from './engineInstaller.js';
@@ -80,12 +81,11 @@ export class EngineVersionsManagerImpl
 		this.watcher.add('.');
 	}
 
-	private addEngineVersion(version: string) {
-		// Chokidar emits an 'addDir' event with an empty path for the root
-		// directory itself, which we need to ignore.
-		if (version === '' || version.startsWith('.')) {
+	private addEngineVersion(versionPath: string) {
+		if (this.shouldIgnoreVersionPath(versionPath)) {
 			return;
 		}
+		const version = path.basename(path.normalize(versionPath));
 		if (!this.engineVersions.includes(version)) {
 			this.engineVersions.push(version);
 			if (this.ready) {
@@ -94,10 +94,11 @@ export class EngineVersionsManagerImpl
 		}
 	}
 
-	private removeEngineVersion(version: string) {
-		if (version.startsWith('.')) {
+	private removeEngineVersion(versionPath: string) {
+		if (this.shouldIgnoreVersionPath(versionPath)) {
 			return;
 		}
+		const version = path.basename(path.normalize(versionPath));
 		const index = this.engineVersions.indexOf(version);
 		if (index > -1) {
 			this.engineVersions.splice(index, 1);
@@ -105,6 +106,19 @@ export class EngineVersionsManagerImpl
 				this.emit('versions', this.engineVersions);
 			}
 		}
+	}
+
+	private shouldIgnoreVersionPath(versionPath: string) {
+		// Chokidar emits an 'addDir' event with an empty path for the root
+		// directory itself, which we need to ignore.
+		if (versionPath === '') {
+			return true;
+		}
+
+		const normalized = path.normalize(versionPath);
+		const version = path.basename(normalized);
+
+		return version.startsWith('.');
 	}
 
 	public installEngine(version: string) {
@@ -116,7 +130,10 @@ export class EngineVersionsManagerImpl
 		const installJob = this.installer
 			.install(version)
 			.catch((error) => {
-				this.logger.error({ error, version }, 'engine install failed');
+				this.logger.error(
+					{ error, version },
+					`engine install failed ${error instanceof Error ? error.message : String(error)}`,
+				);
 			})
 			.finally(() => {
 				this.installInFlight.delete(version);

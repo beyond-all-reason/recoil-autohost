@@ -50,7 +50,7 @@ const releaseLookupSchema: JSONSchemaType<RecoilReleaseInfo[]> = {
 			path: { type: 'string' },
 			tags: { type: 'array', items: { type: 'string' } },
 			size: { type: 'number' },
-			timestamp: { type: 'string', format: 'date-time' },
+			timestamp: { type: 'string' },
 			mirrors: { type: 'array', items: { type: 'string', format: 'uri' } },
 		},
 		required: [
