@@ -5,7 +5,6 @@
 
 set -eu
 
-CONFIG_PATH="/app/config.generated.json"
+CONFIG_PATH="/app/config.json"
 
-node dist/envToConfig.js "$CONFIG_PATH"
 exec node dist/main.js "$CONFIG_PATH"

@@ -27,7 +27,7 @@ COPY docker-entrypoint.sh ./docker-entrypoint.sh
 
 RUN chmod +x /app/docker-entrypoint.sh
 
-RUN mkdir -p engines instances && chown -R node:node /app
+RUN mkdir -p engines instances && chown -R node:node /app/engines /app/instances
 
 USER node
 
