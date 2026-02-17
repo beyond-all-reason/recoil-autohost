@@ -9,6 +9,7 @@ import * as fsPromises from 'node:fs/promises';
 import * as path from 'node:path';
 import { Ajv, JSONSchemaType, type Plugin } from 'ajv';
 import ajvFormats, { type FormatsPluginOptions } from 'ajv-formats';
+import { engineBinaryName } from './engineBinary.js';
 import { Environment } from './environment.js';
 import { SevenZipExtractor } from './sevenZip.js';
 
@@ -17,6 +18,8 @@ const addFormats = ajvFormats as unknown as Plugin<FormatsPluginOptions>;
 
 interface Config {
 	engineInstallTimeoutSeconds: number;
+	engineDownloadMaxAttempts: number;
+	engineDownloadRetryBackoffBaseMs: number;
 	engineCdnBaseUrl: string;
 }
 
@@ -115,11 +118,10 @@ export class EngineInstaller {
 		await fsPromises.mkdir(tempDir, { recursive: true });
 
 		try {
-			await this.downloadFile(mirrorUrl, archivePath, timeoutMs);
-			await this.verifyArchiveChecksum(archivePath, release.md5);
+			await this.downloadAndVerifyArchive(mirrorUrl, archivePath, release.md5, timeoutMs);
 			await this.sevenZip.extract(archivePath, tempDir, timeoutMs);
 
-			await fsPromises.access(path.join(tempDir, 'spring-dedicated'));
+			await fsPromises.access(path.join(tempDir, engineBinaryName()));
 
 			await fsPromises.rm(finalDir, { recursive: true, force: true });
 			await fsPromises.rename(tempDir, finalDir);
@@ -130,8 +132,51 @@ export class EngineInstaller {
 		}
 	}
 
+	private async downloadAndVerifyArchive(
+		url: string,
+		targetPath: string,
+		expectedMd5: string,
+		timeoutMs: number,
+	): Promise<void> {
+		const maxAttempts = Math.max(1, this.env.config.engineDownloadMaxAttempts);
+		const backoffBaseMs = Math.max(1, this.env.config.engineDownloadRetryBackoffBaseMs);
+		let lastError: unknown;
+
+		for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+			try {
+				await this.downloadFile(url, targetPath, timeoutMs);
+				await this.verifyArchiveChecksum(targetPath, expectedMd5);
+				return;
+			} catch (error) {
+				lastError = error;
+				await fsPromises.rm(targetPath, { force: true });
+
+				if (attempt === maxAttempts) {
+					break;
+				}
+
+				const backoffMs = backoffBaseMs * Math.pow(2, attempt - 1);
+				this.logger.warn(
+					{ attempt, maxAttempts, backoffMs, error },
+					'engine archive download failed, retrying',
+				);
+				await this.delay(backoffMs);
+			}
+		}
+
+		if (lastError instanceof Error) {
+			throw lastError;
+		}
+
+		throw new Error(`Engine archive download failed after ${maxAttempts} attempts`);
+	}
+
+	private async delay(timeoutMs: number): Promise<void> {
+		await new Promise<void>((resolve) => setTimeout(resolve, timeoutMs));
+	}
+
 	private async isEngineInstalled(version: string): Promise<boolean> {
-		const engineBinaryPath = path.resolve('engines', version, 'spring-dedicated');
+		const engineBinaryPath = path.resolve('engines', version, engineBinaryName());
 		try {
 			await fsPromises.access(engineBinaryPath);
 			return true;

@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import assert from 'node:assert/strict';
-import { suite, test } from 'node:test';
+import { suite, test, mock } from 'node:test';
 import { createHash } from 'node:crypto';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -13,8 +13,15 @@ import { EngineInstaller } from './engineInstaller.js';
 
 type EngineInstallerAccess = {
 	findEngineRelease(version: string): Promise<unknown>;
+	downloadFile(url: string, targetPath: string, timeoutMs: number): Promise<void>;
 	verifyArchiveChecksum(archivePath: string, expectedMd5: string): Promise<void>;
-	replaceInstalledEngineDir(tempDir: string, finalDir: string, version: string): Promise<void>;
+	downloadAndVerifyArchive(
+		url: string,
+		targetPath: string,
+		expectedMd5: string,
+		timeoutMs: number,
+	): Promise<void>;
+	delay(timeoutMs: number): Promise<void>;
 };
 
 suite('EngineInstaller', () => {
@@ -23,6 +30,8 @@ suite('EngineInstaller', () => {
 			logger: pino({ level: 'silent' }),
 			config: {
 				engineInstallTimeoutSeconds: 60,
+				engineDownloadMaxAttempts: 3,
+				engineDownloadRetryBackoffBaseMs: 1000,
 				engineCdnBaseUrl: 'https://files-cdn.beyondallreason.dev',
 			},
 			mocks: {
@@ -69,6 +78,8 @@ suite('EngineInstaller', () => {
 			}),
 			config: {
 				engineInstallTimeoutSeconds: 60,
+				engineDownloadMaxAttempts: 3,
+				engineDownloadRetryBackoffBaseMs: 1000,
 				engineCdnBaseUrl: 'https://cdn.example.test/base',
 			},
 		}) as unknown as EngineInstallerAccess;
@@ -99,5 +110,36 @@ suite('EngineInstaller', () => {
 		);
 
 		await rm(tmp, { recursive: true, force: true });
+	});
+
+	test('retries download when checksum verification fails', async () => {
+		const installer = new EngineInstaller(
+			getEnv(async () => new Response('', { status: 200 })),
+		) as unknown as EngineInstallerAccess;
+
+		let downloadCalls = 0;
+		let verifyCalls = 0;
+		mock.method(installer, 'downloadFile', async () => {
+			downloadCalls += 1;
+		});
+		mock.method(installer, 'verifyArchiveChecksum', async () => {
+			verifyCalls += 1;
+			if (verifyCalls < 3) {
+				throw new Error('checksum mismatch');
+			}
+		});
+		mock.method(installer, 'delay', async () => {});
+
+		await assert.doesNotReject(
+			installer.downloadAndVerifyArchive(
+				'https://example.invalid/engine.7z',
+				join(tmpdir(), 'engine.7z'),
+				'abc123',
+				1000,
+			),
+		);
+
+		assert.equal(downloadCalls, 3);
+		assert.equal(verifyCalls, 3);
 	});
 });

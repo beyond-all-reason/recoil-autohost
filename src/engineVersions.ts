@@ -25,6 +25,8 @@ export interface EngineVersionsManager extends TypedEmitter<EngineVersionsManage
 
 interface Config {
 	engineInstallTimeoutSeconds: number;
+	engineDownloadMaxAttempts: number;
+	engineDownloadRetryBackoffBaseMs: number;
 	engineCdnBaseUrl: string;
 }
 
