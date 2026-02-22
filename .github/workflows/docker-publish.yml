@@ -31,16 +31,16 @@ jobs:
           if [ "$CURRENT_BRANCH" = "$DEFAULT_BRANCH" ]; then
             NUMBER="${{ github.run_number }}"
           else
-            NUMBER="$(git rev-parse --short HEAD)"
+            NUMBER="$(git rev-parse --short=10 HEAD)"
           fi
 
           REPOSITORY="${{ github.repository }}"
           REGISTRY="ghcr.io/${REPOSITORY,,}"
 
           if [ "$CURRENT_BRANCH" = "$DEFAULT_BRANCH" ]; then
-            echo "release_tags=${REGISTRY}:${NUMBER},${REGISTRY}:latest" >> "$GITHUB_OUTPUT"
+            echo "release_tags=${REGISTRY}:build-${NUMBER},${REGISTRY}:latest" >> "$GITHUB_OUTPUT"
           else
-            echo "release_tags=${REGISTRY}:${NUMBER}-snapshot" >> "$GITHUB_OUTPUT"
+            echo "release_tags=${REGISTRY}:git-${NUMBER}" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Log in to GitHub Container Registry
