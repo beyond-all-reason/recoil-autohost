@@ -13,11 +13,8 @@ import { loadConfig } from './config.js';
 import { pino } from 'pino';
 
 async function main(argv: string[]) {
-	if (argv.length < 3) {
-		console.error('Usage: autohost <configPath>');
-		process.exit(1);
-	}
-	const config = await loadConfig(argv[2]);
+	const configPath = argv.length >= 3 ? argv[2] : undefined;
+	const config = await loadConfig(configPath);
 	const logger = pino();
 	const env = { logger, config };
 

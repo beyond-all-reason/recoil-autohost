@@ -45,15 +45,34 @@ yet fully ready for production deployments.
 
 ## Usage
 
-Autohost takes a single JSON configuration file as argument and starts the
-operation:
+Autohost supports both environment-based config and JSON config files.
+
+Config loading precedence (highest to lowest):
+
+1. `AUTOHOST_*` environment variables (including values loaded from `.env`)
+2. JSON config file (if passed as an argument)
+3. Built-in defaults for optional fields
+
+In Docker, `dist/main.js` starts without a required config path. If
+`/app/config/config.json` exists, it is used automatically as the optional JSON
+source.
+
+Start with environment variables only:
+
+```shell
+npm install
+cp .env.example .env
+npm run start | npx pino-pretty
+```
+
+Or start with a JSON config file (optional):
 
 ```shell
 npm install
 npm run start config.json | npx pino-pretty
 ```
 
-A minimal configuration file looks like:
+A minimal JSON configuration file looks like:
 
 <!-- prettier-ignore -->
 ```json
@@ -65,7 +84,8 @@ A minimal configuration file looks like:
 }
 ```
 
-To see all options take a look at schema in [`src/config.ts`](./src/config.ts).
+To see all options and validation rules take a look at [`src/configSchema.ts`](./src/config.ts)
+and [`./.env.example`](./.env.example).
 
 Autohost expects existence of `engines` folder that contains folder with
 different engine versions, for example:
