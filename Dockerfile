@@ -23,8 +23,9 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
 COPY --from=build /app/dist ./dist
-RUN mkdir -p config engines instances && chown -R node:node /app/engines /app/instances
+RUN mkdir -p config engines instances && chown -R node:node /app/engines /app/instances /app/config
 
 USER node
 
-CMD ["node", "--enable-source-maps", "dist/main.js", "/app/config/config.json"]
+# If a config file is mounted at /app/config/config.json it will be picked up
+CMD ["sh", "-c", "if [ -f /app/config/config.json ]; then exec node --enable-source-maps dist/main.js /app/config/config.json; else exec node --enable-source-maps dist/main.js; fi"]
