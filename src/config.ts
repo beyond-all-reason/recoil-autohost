@@ -24,6 +24,9 @@ export interface Config {
 	engineAutohostStartPort: number;
 	maxPortsUsed: number;
 	engineInstallTimeoutSeconds: number;
+	engineDownloadMaxAttempts: number;
+	engineDownloadRetryBackoffBaseMs: number;
+	engineCdnBaseUrl: string;
 	maxGameDurationSeconds: number;
 }
 
@@ -116,6 +119,25 @@ const ConfigSchema: JSONSchemaType<Config> = {
 			description: 'Hard timeout for engine installation by engine manager',
 			default: 10 * 60,
 			minimum: 5,
+		},
+		engineDownloadMaxAttempts: {
+			type: 'integer',
+			description: 'Maximum number of attempts to download and verify an engine archive.',
+			default: 3,
+			minimum: 1,
+		},
+		engineDownloadRetryBackoffBaseMs: {
+			type: 'integer',
+			description:
+				'Base backoff in milliseconds used between engine download retry attempts.',
+			default: 1000,
+			minimum: 1000,
+		},
+		engineCdnBaseUrl: {
+			type: 'string',
+			description: 'Base URL of BAR CDN API used for engine release lookup.',
+			default: 'https://files-cdn.beyondallreason.dev',
+			format: 'uri',
 		},
 		maxGameDurationSeconds: {
 			type: 'number',
