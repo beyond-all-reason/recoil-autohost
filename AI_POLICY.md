@@ -10,6 +10,7 @@ SPDX-License-Identifier: MIT
 
 **AI usage in generating code must be explicitly disclosed in the associated Pull Request.**
 Contributors must clearly state:
+
 - which AI tool(s) were used (for example: Claude Code, Cursor, Copilot)
 - the extent to which the contribution was AI-assisted
 
@@ -24,6 +25,7 @@ If AI is used solely as an advisory or educational tool, disclosure is not requi
 
 **All AI-assisted code must be fully verified by a human contributor.**
 Contributors are responsible for ensuring that:
+
 - the code has been run and tested
 - the code behaves correctly in practice, not just in theory
 
