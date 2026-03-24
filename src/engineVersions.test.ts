@@ -9,6 +9,7 @@ import { EngineVersionsManagerImpl, type Env } from './engineVersions.js';
 import { FSWatcher } from 'chokidar';
 import { TypedEmitter } from 'tiny-typed-emitter';
 import fs from 'node:fs';
+import { EngineInstaller } from './engineInstaller.js';
 
 suite('EngineVersionsManagerImpl', () => {
 	let fakeWatcher: TypedEmitter & { add: () => void; close: () => void };
@@ -30,6 +31,9 @@ suite('EngineVersionsManagerImpl', () => {
 			logger: pino({ level: 'silent' }),
 			config: {
 				engineInstallTimeoutSeconds: 60,
+				engineDownloadMaxAttempts: 3,
+				engineDownloadRetryBackoffBaseMs: 1000,
+				engineCdnBaseUrl: 'https://files-cdn.beyondallreason.dev',
 			},
 			mocks: {},
 		};
@@ -82,5 +86,66 @@ suite('EngineVersionsManagerImpl', () => {
 		fakeWatcher.emit('ready');
 
 		await promise;
+	});
+
+	test('ignores hidden internal directories', async () => {
+		const evm = new EngineVersionsManagerImpl(getEnv());
+
+		const { promise, resolve } = Promise.withResolvers<void>();
+		evm.once('versions', (versions) => {
+			assert.deepStrictEqual(versions, ['105.1.1-1523-g63a25e1']);
+			resolve();
+		});
+
+		fakeWatcher.emit('addDir', '.downloads');
+		fakeWatcher.emit('addDir', '.tmp-install-1234');
+		fakeWatcher.emit('addDir', 'engines/.downloads');
+		fakeWatcher.emit('addDir', 'engines\\.downloads');
+		fakeWatcher.emit('addDir', '105.1.1-1523-g63a25e1');
+		fakeWatcher.emit('ready');
+
+		await promise;
+	});
+
+	test('normalizes watched directory paths to version names', async () => {
+		const evm = new EngineVersionsManagerImpl(getEnv());
+
+		const { promise: readyPromise, resolve: readyResolve } = Promise.withResolvers<void>();
+		evm.once('versions', () => readyResolve());
+		fakeWatcher.emit('ready');
+		await readyPromise;
+
+		const { promise: addPromise, resolve: addResolve } = Promise.withResolvers<void>();
+		evm.once('versions', (versions) => {
+			assert.deepStrictEqual(versions, ['105.1.1-1523-g63a25e1']);
+			addResolve();
+		});
+		fakeWatcher.emit('addDir', 'engines/105.1.1-1523-g63a25e1');
+		await addPromise;
+
+		const { promise: removePromise, resolve: removeResolve } = Promise.withResolvers<void>();
+		evm.once('versions', (versions) => {
+			assert.deepStrictEqual(versions, []);
+			removeResolve();
+		});
+		fakeWatcher.emit('unlinkDir', 'engines\\105.1.1-1523-g63a25e1');
+		await removePromise;
+	});
+
+	test('de-duplicates install requests for same version', async () => {
+		const { promise: installPromise, resolve: installResolve } = Promise.withResolvers<void>();
+		let installCalls = 0;
+		mock.method(EngineInstaller.prototype, 'install', async () => {
+			installCalls += 1;
+			await installPromise;
+		});
+
+		const evm = new EngineVersionsManagerImpl(getEnv());
+		evm.installEngine('2025.06.12');
+		evm.installEngine('2025.06.12');
+		assert.equal(installCalls, 1);
+
+		installResolve();
+		await Promise.resolve();
 	});
 });

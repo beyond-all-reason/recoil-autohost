@@ -12,6 +12,7 @@ import * as fs from 'node:fs/promises';
 import * as tdf from 'recoil-tdf';
 import { TypedEmitter } from 'tiny-typed-emitter';
 import { parsePacket, type Event, EventType, PacketParseError } from './engineAutohostInterface.js';
+import { engineBinaryName } from './engineBinary.js';
 import { scriptGameFromStartRequest, StartScriptGenError } from './startScriptGen.js';
 import type { AutohostStartRequestData } from 'tachyon-protocol/types';
 import { TachyonError } from './tachyonTypes.js';
@@ -298,7 +299,7 @@ export class EngineRunnerImpl extends TypedEmitter<EngineRunnerEvents> implement
 		if (this.state != State.Starting) return;
 
 		this.engineProcess = (this.env.mocks?.spawn ?? spawn)(
-			path.join(engineDir, 'spring-dedicated'),
+			path.join(engineDir, engineBinaryName()),
 			['-isolation', path.join(instanceDir, 'script.txt')],
 			{
 				cwd: instanceDir,

@@ -6,10 +6,11 @@
  * Module with functionality responsible for managing installed engine versions.
  */
 import { spawn } from 'node:child_process';
-import { TypedEmitter } from 'tiny-typed-emitter';
-import { Environment } from './environment.js';
+import * as fs from 'node:fs';
 import { FSWatcher } from 'chokidar';
-import fs from 'node:fs';
+import { TypedEmitter } from 'tiny-typed-emitter';
+import { EngineInstaller } from './engineInstaller.js';
+import { Environment } from './environment.js';
 
 export interface EngineVersionsManagerEvents {
 	versions: (versions: string[]) => void;
@@ -24,35 +25,38 @@ export interface EngineVersionsManager extends TypedEmitter<EngineVersionsManage
 
 interface Config {
 	engineInstallTimeoutSeconds: number;
+	engineDownloadMaxAttempts: number;
+	engineDownloadRetryBackoffBaseMs: number;
+	engineCdnBaseUrl: string;
 }
 
 interface Mocks {
 	spawn?: typeof spawn;
+	fetch?: typeof fetch;
 }
 
 export type Env = Environment<Config, Mocks>;
 
 /**
  * EngineVersionsManager handles installation and listing of engine versions.
- *
- * TODO: Implement installEngine method.
  */
 export class EngineVersionsManagerImpl
 	extends TypedEmitter<EngineVersionsManagerEvents>
 	implements EngineVersionsManager
 {
 	private logger: Env['logger'];
-	private env: Env;
 	public engineVersions: string[] = [];
 	private watcher: FSWatcher;
+	private installer: EngineInstaller;
+	private installInFlight: Map<string, Promise<void>> = new Map();
 	// We buffer `versions` events until the initial scan is complete to avoid
 	// emitting an event for each engine individually at startup.
 	private ready = false;
 
 	constructor(env: Env) {
 		super();
-		this.env = env;
 		this.logger = env.logger.child({ class: 'EngineVersionsManager' });
+		this.installer = new EngineInstaller(env);
 
 		fs.mkdirSync('engines', { recursive: true });
 
@@ -78,12 +82,11 @@ export class EngineVersionsManagerImpl
 		this.watcher.add('.');
 	}
 
-	private addEngineVersion(version: string) {
-		// Chokidar emits an 'addDir' event with an empty path for the root
-		// directory itself, which we need to ignore.
-		if (version === '') {
+	private addEngineVersion(versionPath: string) {
+		if (this.shouldIgnoreVersionPath(versionPath)) {
 			return;
 		}
+		const version = this.getVersionName(versionPath);
 		if (!this.engineVersions.includes(version)) {
 			this.engineVersions.push(version);
 			if (this.ready) {
@@ -92,7 +95,11 @@ export class EngineVersionsManagerImpl
 		}
 	}
 
-	private removeEngineVersion(version: string) {
+	private removeEngineVersion(versionPath: string) {
+		if (this.shouldIgnoreVersionPath(versionPath)) {
+			return;
+		}
+		const version = this.getVersionName(versionPath);
 		const index = this.engineVersions.indexOf(version);
 		if (index > -1) {
 			this.engineVersions.splice(index, 1);
@@ -102,8 +109,40 @@ export class EngineVersionsManagerImpl
 		}
 	}
 
+	private shouldIgnoreVersionPath(versionPath: string) {
+		// Chokidar emits an 'addDir' event with an empty path for the root
+		// directory itself, which we need to ignore.
+		if (versionPath === '') {
+			return true;
+		}
+		const version = this.getVersionName(versionPath);
+		return version.startsWith('.');
+	}
+
+	private getVersionName(versionPath: string) {
+		const pathParts = versionPath.split(/[\\/]/);
+		return pathParts[pathParts.length - 1] ?? '';
+	}
+
 	public installEngine(version: string) {
-		this.logger.info({ version }, 'got request to install engine, not implemented');
+		if (this.installInFlight.has(version)) {
+			this.logger.info({ version }, 'engine install already in progress');
+			return;
+		}
+
+		const installJob = this.installer
+			.install(version)
+			.catch((error) => {
+				this.logger.error(
+					{ error, version },
+					`engine install failed ${error instanceof Error ? error.message : String(error)}`,
+				);
+			})
+			.finally(() => {
+				this.installInFlight.delete(version);
+			});
+
+		this.installInFlight.set(version, installJob);
 	}
 
 	public close(): Promise<void> {
