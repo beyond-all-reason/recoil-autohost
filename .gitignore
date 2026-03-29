@@ -4,3 +4,6 @@ node_modules
 /instances
 lcov.info
 /config.json
+.env
+.env.*
+!.env.example
