@@ -41,15 +41,62 @@ async function main(argv: string[]) {
 		clientOpts.secure = config.useSecureConnection;
 	}
 
+	let shuttingDown = false;
+	let forceShutdownStarted = false;
+	let activeClient: TachyonClient | null = null;
+	let reconnectSleepAbort: AbortController | null = null;
+
+	async function shutdown(signal: NodeJS.Signals): Promise<void> {
+		if (forceShutdownStarted) return;
+
+		if (shuttingDown) {
+			forceShutdownStarted = true;
+			logger.warn({ signal }, 'second shutdown signal received, forcing shutdown');
+
+			reconnectSleepAbort?.abort();
+			manager.killAllGames();
+			activeClient?.close();
+
+			await engineVersionMgr.close().catch((err) => {
+				logger.error(err, 'failed to close engine version manager during forced shutdown');
+			});
+
+			process.exit(0);
+		}
+
+		shuttingDown = true;
+		logger.info({ signal }, 'shutdown signal received, starting graceful shutdown');
+
+		reconnectSleepAbort?.abort();
+		manager.beginGracefulShutdown();
+		await manager.waitForNoGames();
+		await autohost.drainUpdates();
+
+		activeClient?.close();
+		await engineVersionMgr.close();
+
+		process.exit(0);
+	}
+
+	process.on('SIGINT', (signal) => {
+		void shutdown(signal);
+	});
+
+	process.on('SIGTERM', (signal) => {
+		void shutdown(signal);
+	});
+
 	// This is a simple exponential backoff reconnect loop, we
 	// just keep trying to connect to the server and if we get
 	// disconnected we wait a bit and try again.
 	const minReconnectDelay = 50;
 	const maxReconnectDelay = config.maxReconnectDelaySeconds * 1000;
 	let nextReconnectDelay: number = minReconnectDelay;
-	for (;;) {
+
+	while (!shuttingDown) {
 		logger.info({ tachyonServer: config.tachyonServer }, 'connecting to tachyon server');
 		const client = new TachyonClient(clientOpts);
+		activeClient = client;
 
 		client.on('connected', () => {
 			logger.info('connected to tachyon server');
@@ -73,10 +120,19 @@ async function main(argv: string[]) {
 		try {
 			await once(client, 'close');
 		} catch (err) {
-			logger.error(err, 'failed to connect to tachyon server');
-			nextReconnectDelay = Math.min(nextReconnectDelay * 2, maxReconnectDelay);
+			if (!shuttingDown) {
+				logger.error(err, 'failed to connect to tachyon server');
+				nextReconnectDelay = Math.min(nextReconnectDelay * 2, maxReconnectDelay);
+			}
 		} finally {
+			if (activeClient === client) {
+				activeClient = null;
+			}
 			autohost.disconnected();
+		}
+
+		if (shuttingDown) {
+			break;
 		}
 		logger.info(
 			{
@@ -84,7 +140,18 @@ async function main(argv: string[]) {
 			},
 			`will reconnect to tachyon server after delay`,
 		);
-		await setTimeout(nextReconnectDelay);
+		reconnectSleepAbort = new AbortController();
+		try {
+			await setTimeout(nextReconnectDelay, undefined, {
+				signal: reconnectSleepAbort.signal,
+			});
+		} catch (err) {
+			if (!shuttingDown) {
+				throw err;
+			}
+		} finally {
+			reconnectSleepAbort = null;
+		}
 	}
 }
 

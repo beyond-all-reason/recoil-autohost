@@ -53,7 +53,7 @@ import {
 	LuaMsgScript,
 	LuaMsgUIMode,
 } from './engineAutohostInterface.js';
-import { runEngine } from './engineRunner.js';
+import { runEngine, type EngineRunner, type EngineRunnerEvents } from './engineRunner.js';
 import type { EngineVersionsManager, EngineVersionsManagerEvents } from './engineVersions.js';
 
 function createStartRequest(players: { name: string; userId: string }[]): AutohostStartRequestData {
@@ -137,6 +137,16 @@ class EngineVersionsManagerFake
 	public close(): Promise<void> {
 		return Promise.resolve();
 	}
+}
+
+class ManualEngineRunnerFake extends TypedEmitter<EngineRunnerEvents> implements EngineRunner {
+	close = mock.fn(() => {
+		process.nextTick(() => {
+			this.emit('exit');
+		});
+	});
+
+	sendPacket = mock.fn(async () => {});
 }
 
 suite('Autohost', async () => {
@@ -242,6 +252,80 @@ suite('Autohost', async () => {
 			[0, 1, 2, 3].map((n) => ts.status.mock.calls[n].arguments[0].currentBattles),
 			[1, 2, 1, 0],
 		);
+	});
+
+	await test('shutdown capacity advertises zero max battles', async () => {
+		const env = getEnv();
+		const gm = new GamesManager(env);
+		const ah = new Autohost(env, gm, new EngineVersionsManagerFake());
+		const ts = {
+			update: async () => {},
+			status: mock.fn(async (_status: AutohostStatusEventData) => {}),
+		};
+		ah.connected(ts);
+		ts.status.mock.resetCalls();
+
+		gm.beginGracefulShutdown();
+
+		assert.equal(ts.status.mock.callCount(), 1);
+		assert.equal(ts.status.mock.calls[0].arguments[0].maxBattles, 0);
+	});
+
+	await test('start rejects after graceful shutdown begins', async () => {
+		const env = getEnv();
+		const gm = new GamesManager(env);
+		const ah = new Autohost(env, gm, new EngineVersionsManagerFake());
+
+		gm.beginGracefulShutdown();
+
+		await assert.rejects(
+			ah.start(createStartRequest([{ name: 'user1', userId: randomUUID() }])),
+			{
+				name: 'TachyonError',
+				reason: 'invalid_request',
+				message: /shutting down/i,
+			},
+		);
+	});
+
+	await test('waitForNoGames waits for game still starting', async () => {
+		const er = new ManualEngineRunnerFake();
+		const env = getEnv(() => er);
+		const gm = new GamesManager(env);
+		const req = createStartRequest([{ name: 'user1', userId: randomUUID() }]);
+
+		void gm.start(req);
+
+		let resolved = false;
+		const waitPromise = gm.waitForNoGames().then(() => {
+			resolved = true;
+		});
+
+		await new Promise((resolve) => process.nextTick(resolve));
+		assert.equal(resolved, false);
+
+		er.close();
+
+		await waitPromise;
+		assert.equal(resolved, true);
+	});
+
+	await test('killAllGames closes all runners', async () => {
+		const ers: EngineRunnerFake[] = [];
+		const env = getEnv(() => {
+			const er = new EngineRunnerFake();
+			ers.push(er);
+			return er;
+		});
+		const gm = new GamesManager(env);
+
+		await gm.start(createStartRequest([{ name: 'user1', userId: randomUUID() }]));
+		await gm.start(createStartRequest([{ name: 'user2', userId: randomUUID() }]));
+
+		gm.killAllGames();
+
+		assert.equal(ers[0].close.mock.callCount(), 1);
+		assert.equal(ers[1].close.mock.callCount(), 1);
 	});
 
 	await test('tachyon status contains engine versions on startup', async () => {

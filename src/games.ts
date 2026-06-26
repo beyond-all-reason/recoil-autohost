@@ -68,6 +68,8 @@ export class GamesManager extends TypedEmitter<Events> implements GamesManager {
 	private lastPortOffset: number = 0;
 	private logger: Env['logger'];
 	private currCapacity: GamesCapacity;
+	private shuttingDown = false;
+	private noGamesWaiters: Array<() => void> = [];
 
 	constructor(private env: Env) {
 		super();
@@ -96,6 +98,11 @@ export class GamesManager extends TypedEmitter<Events> implements GamesManager {
 				`game ${req.battleId} already used`,
 			);
 		}
+
+		if (this.shuttingDown === true) {
+			throw new TachyonError('invalid_request', 'autohost is shutting down');
+		}
+
 		if (this.games.size >= this.env.config.maxBattles) {
 			throw new TachyonError('invalid_request', 'too many battles running');
 		}
@@ -136,6 +143,8 @@ export class GamesManager extends TypedEmitter<Events> implements GamesManager {
 				this.currCapacity.currentBattles -= 1;
 				this.emit('capacity', this.capacity);
 			}
+
+			this.maybeResolveNoGamesWaiters();
 		});
 
 		er.on('packet', (packet) => {
@@ -185,5 +194,44 @@ export class GamesManager extends TypedEmitter<Events> implements GamesManager {
 
 	get capacity(): GamesCapacity {
 		return { ...this.currCapacity };
+	}
+
+	get gameCount(): number {
+		return this.games.size;
+	}
+
+	beginGracefulShutdown(): void {
+		if (this.shuttingDown) return;
+
+		this.shuttingDown = true;
+		this.currCapacity.maxBattles = 0;
+		this.emit('capacity', this.capacity);
+	}
+
+	waitForNoGames(): Promise<void> {
+		if (this.games.size === 0) {
+			return Promise.resolve();
+		}
+
+		return new Promise((resolve) => {
+			this.noGamesWaiters.push(resolve);
+		});
+	}
+
+	killAllGames(): void {
+		for (const game of this.games.values()) {
+			game.engineRunner.close();
+		}
+	}
+
+	private maybeResolveNoGamesWaiters(): void {
+		if (this.games.size !== 0) return;
+
+		const waiters = this.noGamesWaiters;
+		this.noGamesWaiters = [];
+
+		for (const resolve of waiters) {
+			resolve();
+		}
 	}
 }

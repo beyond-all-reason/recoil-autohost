@@ -275,6 +275,10 @@ export class Autohost implements TachyonAutohost {
 		}
 	}
 
+	async drainUpdates(): Promise<void> {
+		return this.eventsBuffer.drain();
+	}
+
 	async installEngine(req: AutohostInstallEngineRequestData): Promise<void> {
 		this.engineVersionsMgr.installEngine(req.version);
 	}

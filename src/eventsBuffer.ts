@@ -65,6 +65,7 @@ export class EventsBuffer<T> {
 	private pusherEventsIdx: number = 0;
 	private lastDropTime: number = 0;
 	private events: Deque<{ time: number; event: T }> = new Deque();
+	private drainWaiters: Array<() => void> = [];
 
 	/**
 	 * Construct new EventsBuffer.
@@ -119,6 +120,7 @@ export class EventsBuffer<T> {
 	 */
 	unsubscribe() {
 		this.callback = null;
+		this.maybeResolveDrainWaiters();
 	}
 
 	/**
@@ -137,6 +139,16 @@ export class EventsBuffer<T> {
 		this.maybeDropOlderThen(time - this.maxAge);
 	}
 
+	drain(): Promise<void> {
+		if (!this.callback || !this.pusherRunning) {
+			return Promise.resolve();
+		}
+
+		return new Promise((resolve) => {
+			this.drainWaiters.push(resolve);
+		});
+	}
+
 	/**
 	 * Length is simply number of events still in the buffer.
 	 *
@@ -144,6 +156,17 @@ export class EventsBuffer<T> {
 	 */
 	get length(): number {
 		return this.events.length;
+	}
+
+	private maybeResolveDrainWaiters(): void {
+		if (this.pusherRunning) return;
+
+		const waiters = this.drainWaiters;
+		this.drainWaiters = [];
+
+		for (const resolve of waiters) {
+			resolve();
+		}
 	}
 
 	private maybeDropOlderThen(after: number) {
@@ -173,6 +196,7 @@ export class EventsBuffer<T> {
 				await this.callback(time, event); // must not throw, if it does, crash is appropriate.
 			}
 			this.pusherRunning = false;
+			this.maybeResolveDrainWaiters();
 		});
 	}
 }
