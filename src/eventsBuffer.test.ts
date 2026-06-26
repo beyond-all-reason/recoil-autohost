@@ -201,4 +201,58 @@ suite('EventsBuffer', async () => {
 
 		eb.unsubscribe();
 	});
+
+	await test('drain resolves immediately without subscription', async () => {
+		const eb: EventsBuffer<string> = new EventsBuffer(10 * 1000 * 1000);
+
+		await eb.drain();
+	});
+
+	await test('drain waits for pending callback', async () => {
+		const eb: EventsBuffer<string> = new EventsBuffer(10 * 1000 * 1000);
+		const callbackStarted = Promise.withResolvers<void>();
+		const callbackDone = Promise.withResolvers<void>();
+		let drainResolved = false;
+
+		eb.subscribe(Date.now() * 1000, async () => {
+			callbackStarted.resolve();
+			await callbackDone.promise;
+		});
+
+		eb.push('event');
+		await callbackStarted.promise;
+
+		const drainPromise = eb.drain().then(() => {
+			drainResolved = true;
+		});
+
+		await new Promise((resolve) => process.nextTick(resolve));
+		assert.equal(drainResolved, false);
+
+		callbackDone.resolve();
+		await drainPromise;
+
+		assert.equal(drainResolved, true);
+		eb.unsubscribe();
+	});
+
+	await test('unsubscribe lets drain finish', async () => {
+		const eb: EventsBuffer<string> = new EventsBuffer(10 * 1000 * 1000);
+		const callbackStarted = Promise.withResolvers<void>();
+		const callbackDone = Promise.withResolvers<void>();
+
+		eb.subscribe(Date.now() * 1000, async () => {
+			callbackStarted.resolve();
+			await callbackDone.promise;
+		});
+
+		eb.push('event');
+		await callbackStarted.promise;
+
+		const drainPromise = eb.drain();
+		eb.unsubscribe();
+		callbackDone.resolve();
+
+		await drainPromise;
+	});
 });
