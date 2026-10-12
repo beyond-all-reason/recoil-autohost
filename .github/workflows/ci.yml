@@ -3,18 +3,87 @@
 # SPDX-License-Identifier: CC0-1.0
 
 name: CI
-on: [push, pull_request]
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
-  build:
+  ci:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
-          cache: 'npm'
+          node-version-file: .nvmrc
+          cache: npm
+
       - run: npm ci
-      - run: npm run format:check
-      - run: npm run build
-      - run: npm test
-      - run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
+
+      # Runs even when the check above failed, so one run reports both.
+      - name: Lint
+        if: ${{ !cancelled() }}
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+  # Only on main in the upstream repo, and only once tests are green.
+  publish:
+    if: ${{ github.event_name == 'push' && github.repository == 'beyond-all-reason/recoil-autohost' }}
+    needs: [ci]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/beyond-all-reason/recoil-autohost
+          tags: |
+            type=raw,value=latest
+            type=sha,format=long
+
+      - id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - uses: actions/attest-build-provenance@v4
+        with:
+          subject-name: ghcr.io/beyond-all-reason/recoil-autohost
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
