@@ -10,6 +10,7 @@ import { mkdtemp, mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import type { AutohostStartRequestData } from 'tachyon-protocol/types';
+import { Registry } from '@prometheus-io/client';
 import { setImmediate as asyncSetImmediate } from 'timers/promises';
 
 import { runEngine, EngineRunnerImpl } from './engineRunner.js';
@@ -61,6 +62,7 @@ function getEnv(spawnMock?: typeof spawn) {
 	return {
 		logger: pino({ level: 'silent' }),
 		config: { engineSettings: {} },
+		metrics: new Registry(),
 		mocks: { spawn: spawnMock },
 	};
 }

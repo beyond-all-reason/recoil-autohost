@@ -9,6 +9,7 @@ import { EngineVersionsManagerImpl, type Env } from './engineVersions.js';
 import { FSWatcher } from 'chokidar';
 import { TypedEmitter } from 'tiny-typed-emitter';
 import fs from 'node:fs';
+import { Registry } from '@prometheus-io/client';
 
 suite('EngineVersionsManagerImpl', () => {
 	let fakeWatcher: TypedEmitter & { add: () => void; close: () => void };
@@ -31,6 +32,7 @@ suite('EngineVersionsManagerImpl', () => {
 			config: {
 				engineInstallTimeoutSeconds: 60,
 			},
+			metrics: new Registry(),
 			mocks: {},
 		};
 	}

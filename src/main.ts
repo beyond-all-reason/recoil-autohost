@@ -10,7 +10,9 @@ import { Autohost } from './autohost.js';
 import { callTachyonAutohost, createTachyonEvent, TachyonServer } from './tachyonTypes.js';
 import { TachyonClient, TachyonClientOpts } from './tachyonClient.js';
 import { loadConfig } from './config.js';
+import { startMetricsServer } from './metrics.js';
 import { pino } from 'pino';
+import { Registry, collectDefaultMetrics } from '@prometheus-io/client';
 
 async function main(argv: string[]) {
 	if (argv.length < 3) {
@@ -19,7 +21,8 @@ async function main(argv: string[]) {
 	}
 	const config = await loadConfig(argv[2]);
 	const logger = pino();
-	const env = { logger, config };
+	const metrics = new Registry();
+	const env = { logger, config, metrics };
 
 	const manager = new GamesManager(env);
 	const engineVersionMgr = new EngineVersionsManagerImpl(env);
@@ -28,6 +31,11 @@ async function main(argv: string[]) {
 		process.exit(1);
 	});
 	const autohost = new Autohost(env, manager, engineVersionMgr);
+
+	if (config.metricsPort) {
+		collectDefaultMetrics({ register: metrics });
+		startMetricsServer(env, config.metricsPort);
+	}
 
 	const clientOpts: TachyonClientOpts = {
 		hostname: config.tachyonServer,

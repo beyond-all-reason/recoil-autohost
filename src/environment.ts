@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { type Logger } from 'pino';
+import { type Registry } from '@prometheus-io/client';
 
 /**
  * Environment is a uniform object to be passed within the application that
@@ -19,5 +20,6 @@ import { type Logger } from 'pino';
 export interface Environment<Config extends object = object, Mocks extends object = object> {
 	logger: Logger;
 	config: Config;
+	metrics: Registry;
 	mocks?: Mocks;
 }

@@ -9,6 +9,7 @@ import { type Event, EventType } from './engineAutohostInterface.js';
 import { TypedEmitter } from 'tiny-typed-emitter';
 import { TachyonError } from './tachyonTypes.js';
 import events from 'node:events';
+import { Gauge } from '@prometheus-io/client';
 
 interface Game {
 	battleId: string;
@@ -68,6 +69,7 @@ export class GamesManager extends TypedEmitter<Events> implements GamesManager {
 	private lastPortOffset: number = 0;
 	private logger: Env['logger'];
 	private currCapacity: GamesCapacity;
+	private battlesGauge: Gauge;
 
 	constructor(private env: Env) {
 		super();
@@ -76,6 +78,18 @@ export class GamesManager extends TypedEmitter<Events> implements GamesManager {
 			currentBattles: 0,
 			maxBattles: env.config.maxBattles,
 		};
+
+		this.battlesGauge = new Gauge({
+			name: 'autohost_battles',
+			help: 'Number of currently running battles',
+			registers: [env.metrics],
+		});
+		this.battlesGauge.set(0);
+		new Gauge({
+			name: 'autohost_max_battles',
+			help: 'Maximum number of battles the autohost can run at the same time',
+			registers: [env.metrics],
+		}).set(env.config.maxBattles);
 	}
 
 	private findFreePortOffset(): number {
@@ -134,6 +148,7 @@ export class GamesManager extends TypedEmitter<Events> implements GamesManager {
 			if (game.started) {
 				this.emit('exit', game.battleId);
 				this.currCapacity.currentBattles -= 1;
+				this.battlesGauge.dec();
 				this.emit('capacity', this.capacity);
 			}
 		});
@@ -149,6 +164,7 @@ export class GamesManager extends TypedEmitter<Events> implements GamesManager {
 		game.started = true;
 		game.killTimer = this.createKillTimer(game);
 		this.currCapacity.currentBattles += 1;
+		this.battlesGauge.inc();
 		process.nextTick(() => {
 			this.emit('capacity', this.capacity);
 		});

@@ -25,6 +25,7 @@ export interface Config {
 	maxPortsUsed: number;
 	engineInstallTimeoutSeconds: number;
 	maxGameDurationSeconds: number;
+	metricsPort: number | null;
 }
 
 const ConfigSchema: JSONSchemaType<Config> = {
@@ -122,6 +123,13 @@ const ConfigSchema: JSONSchemaType<Config> = {
 			description: 'How many seconds to wait before automatically killing the game.',
 			default: 8 * 60 * 60,
 			minimum: 60 * 60,
+		},
+		metricsPort: {
+			type: 'integer',
+			description:
+				'Optional port to serve Prometheus metrics on at /metrics. Disabled when not set. Should not be exposed publicly.',
+			minimum: 1024,
+			maximum: 65535,
 		},
 	},
 	required: ['tachyonServer', 'authClientId', 'authClientSecret', 'hostingIP'],

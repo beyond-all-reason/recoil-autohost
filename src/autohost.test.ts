@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import { TypedEmitter } from 'tiny-typed-emitter';
+import { Registry } from '@prometheus-io/client';
 import { GamesManager, type Env as GamesManagerEnv } from './games.js';
 import {
 	Autohost,
@@ -154,6 +155,7 @@ suite('Autohost', async () => {
 				maxUpdatesSubscriptionAgeSeconds: 10 * 60,
 				maxGameDurationSeconds: 8 * 60 * 60,
 			},
+			metrics: new Registry(),
 			mocks: { runEngine: runEngineMock ?? fakeRunEngine },
 		};
 	}
@@ -242,6 +244,28 @@ suite('Autohost', async () => {
 			[0, 1, 2, 3].map((n) => ts.status.mock.calls[n].arguments[0].currentBattles),
 			[1, 2, 1, 0],
 		);
+	});
+
+	await test('battles metrics', async () => {
+		const ers: EngineRunnerFake[] = [];
+		const env = getEnv(() => {
+			const er = new EngineRunnerFake();
+			ers.push(er);
+			return er;
+		});
+		const gm = new GamesManager(env);
+		const ah = new Autohost(env, gm, new EngineVersionsManagerFake());
+		const value = async (name: string) =>
+			(await env.metrics.getSingleMetric(name)!.get()).values[0].value;
+
+		assert.equal(await value('autohost_battles'), 0);
+		assert.equal(await value('autohost_max_battles'), 1000);
+		await ah.start(createStartRequest([{ name: 'user1', userId: randomUUID() }]));
+		await ah.start(createStartRequest([{ name: 'user1', userId: randomUUID() }]));
+		assert.equal(await value('autohost_battles'), 2);
+		ers[0].close();
+		await once(gm, 'exit');
+		assert.equal(await value('autohost_battles'), 1);
 	});
 
 	await test('tachyon status contains engine versions on startup', async () => {
