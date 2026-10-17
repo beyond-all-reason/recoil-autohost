@@ -17,7 +17,7 @@ FROM node:22-bookworm-slim AS runtime
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends p7zip-full && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends p7zip-full tini && rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
@@ -27,4 +27,5 @@ RUN mkdir -p config engines instances && chown -R node:node /app/engines /app/in
 
 USER node
 
+ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["node", "--enable-source-maps", "dist/main.js", "/app/config/config.json"]
