@@ -20,7 +20,13 @@ async function main(argv: string[]) {
 		process.exit(1);
 	}
 	const config = await loadConfig(argv[2]);
-	const logger = pino();
+	const logger = pino({
+		timestamp: pino.stdTimeFunctions.isoTime,
+		formatters: { level: (label) => ({ level: label }) },
+		// Drops pino's pid and hostname: we run one process per container, the
+		// collector already knows which one it reads.
+		base: undefined,
+	});
 	const metrics = new Registry();
 	const env = { logger, config, metrics };
 
